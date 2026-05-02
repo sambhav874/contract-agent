@@ -1,0 +1,31 @@
+# Core
+click>=8.0.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+
+# Async HTTP
+httpx>=0.25.0
+
+# MongoDB
+motor>=3.3.0
+pymongo>=4.6.0
+
+# Task queue
+celery>=5.3.0
+kombu>=5.3.0
+
+# Terminal UI
+rich>=13.0.0
+
+# Embeddings
+voyageai>=0.2.0
+
+# Utilities
+python-dotenv>=1.0.0
+uvloop>=0.19.0; platform_system != "Windows"
+tiktoken>=0.5.0
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0

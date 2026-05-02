@@ -1,0 +1,37 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - '5672:5672'
+      - '15672:15672'
+    environment:
+      RABBITMQ_DEFAULT_USER: agent
+      RABBITMQ_DEFAULT_PASS: agentpass
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: rabbitmq-diagnostics ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongodb:
+    image: mongodb/mongodb-atlas-local:latest
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo_data:/data/db
+
+  celery_worker:
+    build: .
+    command: celery -A app.tasks.celery_tasks worker --loglevel=info --concurrency=4
+    env_file: .env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - .:/app
+
+volumes:
+  rabbitmq_data:
+  mongo_data:

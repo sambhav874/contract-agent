@@ -1,0 +1,29 @@
+{
+  "contract_type": "NDA",
+  "parties": [
+    {"name": "TechCorp Industries, Inc.", "role": "Party A"},
+    {"name": "DataSolutions LLC", "role": "Party B"}
+  ],
+  "effective_date": "January 15, 2025",
+  "governing_law": "California",
+  "jurisdiction": "San Francisco, California",
+  "key_kpis": [
+    {"name": "Agreement Term", "value": "3 years", "type": "timeline"},
+    {"name": "Confidentiality Period", "value": "5 years", "type": "timeline"},
+    {"name": "Termination Notice", "value": "30 days", "type": "timeline"}
+  ],
+  "key_risks": [
+    {
+      "severity": 3,
+      "type": "legal",
+      "description": "Injunctive relief available for any breach"
+    }
+  ],
+  "key_obligations": [
+    {"party": "Both", "obligation": "Protect confidential information with reasonable care"},
+    {"party": "Both", "obligation": "Use confidential information solely for the Purpose"},
+    {"party": "Both", "obligation": "Return or destroy confidential information upon termination"}
+  ],
+  "missing_clauses": [],
+  "red_flags": []
+}

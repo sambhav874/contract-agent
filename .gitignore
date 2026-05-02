@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# Reports and temporary files
+COMPREHENSIVE_REPORT.md
+COMPREHENSIVE_REPORT1.md
+EVALUATION_REPORT.md
+evaluation_results.json
+evaluation_results_v2.json
+failed_gemini_response.txt
+failed_gemini_response.json
+
+# IDEs
+.vscode/
+.idea/
+.claude/
+.pytest_cache/

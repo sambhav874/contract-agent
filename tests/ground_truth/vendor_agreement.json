@@ -1,0 +1,62 @@
+{
+  "contract_type": "Vendor",
+  "parties": [
+    {"name": "GlobalRetail Corporation", "role": "Client"},
+    {"name": "TechVendor Solutions, Inc.", "role": "Vendor"}
+  ],
+  "effective_date": "February 1, 2025",
+  "governing_law": "Illinois",
+  "jurisdiction": "Illinois (Negotiation first, then legal remedies)",
+  "key_kpis": [
+    {"name": "Total Contract Value", "value": "$2,500,000", "type": "financial"},
+    {"name": "Professional Services", "value": "$2,000,000", "type": "financial"},
+    {"name": "Project Management", "value": "$300,000", "type": "financial"},
+    {"name": "Travel Expense Cap", "value": "$200,000", "type": "financial"},
+    {"name": "M1 Payment", "value": "15% ($375,000)", "type": "financial"},
+    {"name": "M2 Payment", "value": "20% ($500,000)", "type": "financial"},
+    {"name": "M3 Payment", "value": "30% ($750,000)", "type": "financial"},
+    {"name": "M4 Payment", "value": "20% ($500,000)", "type": "financial"},
+    {"name": "M5 Payment", "value": "15% ($375,000)", "type": "financial"},
+    {"name": "M1 Due Date", "value": "April 15, 2025", "type": "timeline"},
+    {"name": "M2 Due Date", "value": "June 30, 2025", "type": "timeline"},
+    {"name": "M3 Due Date", "value": "September 30, 2025", "type": "timeline"},
+    {"name": "M4 Due Date", "value": "November 15, 2025", "type": "timeline"},
+    {"name": "M5 Due Date", "value": "December 31, 2025", "type": "timeline"},
+    {"name": "Review Period", "value": "15 business days", "type": "timeline"},
+    {"name": "Cure Period", "value": "30 days", "type": "timeline"},
+    {"name": "Warranty Period", "value": "12 months", "type": "timeline"},
+    {"name": "Confidentiality Period", "value": "5 years", "type": "timeline"},
+    {"name": "Liquidated Damages", "value": "$5,000/day (max 5%)", "type": "penalty"},
+    {"name": "Payment Terms", "value": "Net 45", "type": "financial"},
+    {"name": "Late Payment Interest", "value": "1% per month", "type": "penalty"},
+    {"name": "General Liability Insurance", "value": "$2,000,000", "type": "other"},
+    {"name": "Professional Liability Insurance", "value": "$5,000,000", "type": "other"},
+    {"name": "Non-Solicitation Period", "value": "12 months post-termination", "type": "timeline"}
+  ],
+  "key_risks": [
+    {
+      "severity": 3,
+      "type": "financial",
+      "description": "Liquidated damages for delays - $5,000/day up to 5% of fees"
+    },
+    {
+      "severity": 2,
+      "type": "legal",
+      "description": "Liability cap except for confidentiality, indemnification, gross negligence"
+    }
+  ],
+  "key_obligations": [
+    {"party": "Vendor", "obligation": "Perform services in professional manner per industry standards"},
+    {"party": "Vendor", "obligation": "Deliver deliverables per milestone schedule"},
+    {"party": "Vendor", "obligation": "Cure deficiencies within 30 days"},
+    {"party": "Vendor", "obligation": "Maintain required insurance coverage"},
+    {"party": "Client", "obligation": "Pay invoices within 45 days"},
+    {"party": "Client", "obligation": "Review deliverables within 15 business days"},
+    {"party": "Client", "obligation": "Reimburse pre-approved expenses"},
+    {"party": "Both", "obligation": "Protect confidential information for 5 years"}
+  ],
+  "missing_clauses": [],
+  "red_flags": [
+    {"severity": "Medium", "description": "Liquidated damages clause may be enforceable depending on jurisdiction"}
+  ]
+}

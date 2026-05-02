@@ -1,0 +1,51 @@
+{
+  "contract_type": "SaaS",
+  "parties": [
+    {"name": "CloudServe Technologies, Inc.", "role": "Provider"},
+    {"name": "Enterprise Solutions Corp.", "role": "Customer"}
+  ],
+  "effective_date": "March 1, 2025",
+  "governing_law": "New York",
+  "jurisdiction": "New York, New York (Arbitration)",
+  "key_kpis": [
+    {"name": "Initial Term", "value": "3 years", "type": "timeline"},
+    {"name": "Subscription Fee", "value": "$120,000/year", "type": "financial"},
+    {"name": "Authorized Users", "value": "500", "type": "volume"},
+    {"name": "Additional User Fee", "value": "$240/user/year", "type": "financial"},
+    {"name": "Uptime SLA", "value": "99.0%", "type": "sla"},
+    {"name": "Price Increase Cap", "value": "15% annually", "type": "financial"},
+    {"name": "Payment Terms", "value": "Annual, in advance", "type": "financial"},
+    {"name": "Late Payment Interest", "value": "1.5% per month", "type": "penalty"},
+    {"name": "Breach Cure Period", "value": "30 days", "type": "timeline"},
+    {"name": "Non-renewal Notice", "value": "90 days", "type": "timeline"}
+  ],
+  "key_risks": [
+    {
+      "severity": 4,
+      "type": "financial",
+      "description": "Liability cap limited to 12 months fees"
+    },
+    {
+      "severity": 3,
+      "type": "legal",
+      "description": "Mandatory arbitration with class action waiver"
+    },
+    {
+      "severity": 2,
+      "type": "operational",
+      "description": "Automatic renewal if not cancelled 90 days prior"
+    }
+  ],
+  "key_obligations": [
+    {"party": "Provider", "obligation": "Maintain 99% uptime"},
+    {"party": "Provider", "obligation": "Notify of data breach within 72 hours"},
+    {"party": "Provider", "obligation": "Implement reasonable security safeguards"},
+    {"party": "Customer", "obligation": "Pay subscription fees annually in advance"},
+    {"party": "Customer", "obligation": "Prevent unauthorized access"},
+    {"party": "Both", "obligation": "Protect confidential information for 3 years"}
+  ],
+  "missing_clauses": [],
+  "red_flags": [
+    {"severity": "Medium", "description": "Automatic renewal clause"}
+  ]
+}
