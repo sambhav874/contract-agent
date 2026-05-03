@@ -1,5 +1,6 @@
 """MongoDB hybrid search retriever with fallback mechanisms."""
 
+import asyncio
 from typing import Any
 
 from app.config import settings
@@ -22,22 +23,12 @@ class Retriever:
         top_k: int = 10,
     ) -> list[dict[str, Any]]:
         """
-        Retrieve relevant chunks using hybrid search with fallback.
-
-        Args:
-            contract_id: Contract to search within
-            query: User query or search term
-            tags: Optional section type tags to filter on
-            levels: Optional chunk levels to filter on
-            top_k: Number of results to return
-
-        Returns:
-            List of retrieved chunks with scores
+        Retrieve relevant chunks using hybrid search with Rank Fusion.
+        Combines results from Vector Search, Keyword Search, and Structural Match.
         """
-        # Embed the query
+        # 1. Prepare search inputs
         query_embedding = await embed_query(query)
-
-        # Separate semantic tags from structural paths
+        
         semantic_tags = []
         structural_tags = []
         if tags:
@@ -47,25 +38,62 @@ class Retriever:
                 else:
                     semantic_tags.append(t)
 
-        # Vector search only supports simple filters
-        vector_filter: dict[str, Any] = {"contract_id": contract_id}
-        if semantic_tags:
-            vector_filter["section_type_tags"] = {"$in": semantic_tags}
+        # 2. Execute parallel searches
+        # We fetch more candidates than top_k for better fusion quality
+        candidate_pool = 50 
+        
+        vector_task = self._vector_search(contract_id, query_embedding, semantic_tags, limit=candidate_pool)
+        keyword_task = self._keyword_search(contract_id, query, semantic_tags, limit=candidate_pool)
+        
+        # Structural search is high-precision, we fetch it too
+        struct_results = []
+        if structural_tags:
+            struct_results = await self._structural_search(contract_id, structural_tags, limit=candidate_pool)
 
-        # 1. Vector search
+        vector_results, keyword_results = await asyncio.gather(vector_task, keyword_task)
+
+        # 3. Apply Reciprocal Rank Fusion (RRF)
+        # Weights can be tuned. Default is equal weighting (1.0).
+        results = self._apply_rrf(
+            search_results_lists=[
+                (vector_results, 1.0),
+                (keyword_results, 1.0),
+                (struct_results, 2.0), # Boost structural matches
+            ],
+            top_k=top_k
+        )
+
+        # 4. Final Fallback
+        if not results:
+            collection = MongoDB.get_collection("chunks")
+            results = await collection.find(
+                {"contract_id": contract_id},
+                {"embedding": 0},
+            ).limit(top_k).to_list(top_k)
+
+        return results
+
+    async def _vector_search(
+        self, 
+        contract_id: str, 
+        embedding: list[float], 
+        tags: list[str] | None, 
+        limit: int
+    ) -> list[dict[str, Any]]:
+        """Perform semantic vector search."""
         vector_filter: dict[str, Any] = {"contract_id": contract_id}
-        if semantic_tags:
-            vector_filter["section_type_tags"] = {"$in": semantic_tags}
+        if tags:
+            vector_filter["section_type_tags"] = {"$in": tags}
 
         pipeline = [
             {
                 "$vectorSearch": {
                     "index": self.vector_index,
-                    "queryVector": query_embedding,
+                    "queryVector": embedding,
                     "path": "embedding",
                     "filter": vector_filter,
-                    "numCandidates": 150,
-                    "limit": top_k,
+                    "numCandidates": limit * 3,
+                    "limit": limit,
                 }
             },
             {"$addFields": {"score": {"$meta": "vectorSearchScore"}}},
@@ -73,73 +101,20 @@ class Retriever:
         ]
         
         collection = MongoDB.get_collection("chunks")
-        results = await collection.aggregate(pipeline).to_list(top_k)
-
-        # 2. Structural fetch (Direct match)
-        if structural_tags:
-            or_filters = [{"structural_path": {"$regex": st, "$options": "i"}} for st in structural_tags]
-            struct_results = await collection.find(
-                {"contract_id": contract_id, "$or": or_filters},
-                {"embedding": 0}
-            ).limit(top_k).to_list(top_k)
-            
-            # Combine and deduplicate
-            existing_ids = {r.get("chunk_id") for r in results}
-            for sr in struct_results:
-                if sr.get("chunk_id") not in existing_ids:
-                    results.append(sr)
-                    existing_ids.add(sr.get("chunk_id"))
-
-        # 3. FALLBACKS ... (rest of the logic)
-
-        # FALLBACK 1: If vector search returns < 5 results, try keyword search
-        if len(results) < 5:
-            keyword_results = await self._keyword_search(
-                contract_id=contract_id,
-                query=query,
-                tags=tags,
-                top_k=top_k - len(results),
-            )
-            results.extend(keyword_results)
-
-        # FALLBACK 2: If still < 5 results, fetch by section tags
-        if len(results) < 5 and tags:
-            section_results = await self.fetch_by_section(
-                contract_id=contract_id,
-                section_tags=tags,
-                levels=levels,
-            )
-            # Add only if not already in results
-            existing_ids = {r.get("chunk_id") for r in results}
-            for sr in section_results:
-                if sr.get("chunk_id") not in existing_ids:
-                    results.append(sr)
-                    existing_ids.add(sr.get("chunk_id"))
-
-        # FALLBACK 3: If still no results, return all chunks for contract
-        if len(results) == 0:
-            all_chunks = await collection.find(
-                {"contract_id": contract_id},
-                {"embedding": 0},
-            ).to_list(top_k)
-            results = all_chunks
-
-        return results
+        return await collection.aggregate(pipeline).to_list(limit)
 
     async def _keyword_search(
         self,
         contract_id: str,
         query: str,
         tags: list[str] | None = None,
-        top_k: int = 5,
+        limit: int = 50,
     ) -> list[dict[str, Any]]:
-        """Fallback keyword search using Atlas full-text search."""
+        """Lexical search using Atlas full-text search."""
         filter_dict: dict[str, Any] = {"contract_id": contract_id}
-
         if tags:
             filter_dict["section_type_tags"] = {"$in": tags}
 
-        # Try full-text search first
         pipeline = [
             {
                 "$search": {
@@ -152,50 +127,70 @@ class Retriever:
                 }
             },
             {"$addFields": {"score": {"$meta": "searchScore"}}},
-            {"$sort": {"score": -1}},
             {"$project": {"embedding": 0}},
-            {"$limit": top_k},
+            {"$limit": limit},
         ]
 
         collection = MongoDB.get_collection("chunks")
         try:
-            results = await collection.aggregate(pipeline).to_list(top_k)
-            return results
+            return await collection.aggregate(pipeline).to_list(limit)
         except Exception:
-            # Fallback to exact text match if full-text search not configured
-            # Use regex for partial matching
-            query_lower = query.lower()
-            keywords = query_lower.split()[:5]  # First 5 words
-
-            match_pipeline = []
-            for kw in keywords:
-                match_pipeline.append({
-                    "$match": {
-                        "contract_id": contract_id,
-                        "text": {"$regex": kw, "$options": "i"}
-                    }
-                })
-
-            if match_pipeline:
-                # Combine with $or
-                or_pipeline = [{
-                    "$match": {
-                        "contract_id": contract_id,
-                        "$or": [{"text": {"$regex": kw, "$options": "i"}} for kw in keywords]
-                    }
-                }, {"$limit": top_k}]
-
-                try:
-                    results = await collection.aggregate(or_pipeline).to_list(top_k)
-                    return results
-                except Exception:
-                    pass
-
-            # Last resort: return first N chunks
+            # Fallback to simple regex if Atlas search fails
             return await collection.find(
-                {"contract_id": contract_id},
-                {"embedding": 0},
-            ).limit(top_k).to_list(top_k)
+                {"contract_id": contract_id, "text": {"$regex": query, "$options": "i"}},
+                {"embedding": 0}
+            ).limit(limit).to_list(limit)
+
+    async def _structural_search(
+        self,
+        contract_id: str,
+        structural_tags: list[str],
+        limit: int = 50
+    ) -> list[dict[str, Any]]:
+        """Direct match on structural paths (Article, Section, etc)."""
+        collection = MongoDB.get_collection("chunks")
+        or_filters = [{"structural_path": {"$regex": st, "$options": "i"}} for st in structural_tags]
+        return await collection.find(
+            {"contract_id": contract_id, "$or": or_filters},
+            {"embedding": 0}
+        ).limit(limit).to_list(limit)
+
+    def _apply_rrf(
+        self,
+        search_results_lists: list[tuple[list[dict[str, Any]], float]],
+        top_k: int,
+        k: int = 60
+    ) -> list[dict[str, Any]]:
+        """
+        Apply Reciprocal Rank Fusion to multiple result lists.
+        Score = sum(weight / (k + rank))
+        """
+        rrf_scores: dict[str, float] = {}
+        chunk_map: dict[str, dict[str, Any]] = {}
+
+        for results, weight in search_results_lists:
+            for rank, chunk in enumerate(results):
+                chunk_id = chunk.get("chunk_id") or str(chunk.get("_id"))
+                if not chunk_id:
+                    continue
+                
+                if chunk_id not in chunk_map:
+                    chunk_map[chunk_id] = chunk
+                
+                # RRF Formula
+                score = weight / (k + rank + 1)
+                rrf_scores[chunk_id] = rrf_scores.get(chunk_id, 0.0) + score
+
+        # Sort by RRF score descending
+        sorted_ids = sorted(rrf_scores.keys(), key=lambda x: rrf_scores[x], reverse=True)
+        
+        final_results = []
+        for cid in sorted_ids[:top_k]:
+            chunk = chunk_map[cid]
+            chunk["rrf_score"] = rrf_scores[cid]
+            final_results.append(chunk)
+            
+        return final_results
 
     async def fetch_by_ids(
         self,
