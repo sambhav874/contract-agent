@@ -171,12 +171,20 @@ def analyse(contract_id: str, intent: str, q: str | None = None, sync: bool = Fa
 
             # Synthesize
             result = await synthesise_output(output)
+
+            # Update job in DB
+            await MongoDB.update_analysis_job(job_id, {
+                "status": "completed",
+                "result": result,
+                "completed_at": datetime.now(timezone.utc)
+            })
+
             return result
 
         console.print("[yellow]Running analysis (this may take a moment)...[/yellow]")
         try:
             result = asyncio.run(_run_sync())
-            console.print("[green]✓ Analysis complete[/green]")
+            console.print("[green]✓ Analysis complete and persisted to database[/green]")
             _display_analysis_result(result, intent)
         except Exception as e:
             import traceback
@@ -241,32 +249,40 @@ def status(job_id: str):
 
 
 @cli.command()
-@click.argument("job_id")
-@click.option("--format", "fmt", default="json", help="Output format")
-@click.option("--output", "-o", help="Output file")
-def export(job_id: str, fmt: str = "json", output: str | None = None):
-    """Export analysis results."""
+@click.argument("identifier")
+@click.option("--format", "fmt", type=click.Choice(["json", "csv"]), default="json", help="Output format")
+@click.option("--output", "-o", help="Output file path")
+@click.option("--intent", "-i", default="kpi", help="Intent to export (if identifier is a contract_id)")
+def export(identifier: str, fmt: str = "json", output: str | None = None, intent: str = "kpi"):
+    """Export analysis results by Job ID or Contract ID."""
     async def _export():
         await MongoDB.connect()
-        return await MongoDB.get_analysis_job(job_id)
+        # Try as Job ID first
+        job = await MongoDB.get_analysis_job(identifier)
+        if not job:
+            # Try as Contract ID
+            job = await MongoDB.get_latest_job(identifier, intent)
+        return job
 
     job = asyncio.run(_export())
 
     if not job:
-        console.print(f"[red]Job {job_id} not found.[/red]")
+        console.print(f"[red]No completed job found for {identifier} (intent: {intent})[/red]")
         return
 
     result = job.get("result", {})
+    if not result:
+        console.print("[red]Job has no result data.[/red]")
+        return
 
     if output:
-        with open(output, "w") as f:
-            if fmt == "json":
-                json.dump(result, f, indent=2)
-            else:
-                f.write(str(result))
-        console.print(f"[green]Exported to:[/green] {output}")
+        _save_result_to_file(result, output, fmt)
     else:
-        console.print(json.dumps(result, indent=2))
+        if fmt == "json":
+            console.print(json.dumps(result, indent=2))
+        else:
+            # For CSV without output file, just print a preview or error
+            console.print("[yellow]CSV export requires an output file path using --output or -o[/yellow]")
 
 
 @cli.command()
@@ -331,23 +347,36 @@ def _display_kpi_result(result: dict[str, Any]) -> None:
     kpis = structured.get("kpis", [])
 
     if kpis:
-        table = Table(title="Key Performance Indicators")
-        table.add_column("Name", style="cyan")
+        table = Table(title="Key Performance Indicators", show_lines=True)
+        table.add_column("Name", style="cyan", no_wrap=False)
         table.add_column("Value", style="green")
-        table.add_column("Type")
-        table.add_column("Party")
-        table.add_column("Section")
+        table.add_column("Unit", style="dim")
+        table.add_column("Type", style="blue")
+        table.add_column("Party", style="magenta")
+        table.add_column("Trigger Condition", style="yellow")
+        table.add_column("Confidence", style="dim")
 
         for kpi in kpis:
+            conf = kpi.get("confidence", 0.0)
+            conf_str = f"{conf:.2f}"
+            if conf > 0.9:
+                conf_str = f"[green]{conf_str}[/green]"
+            elif conf < 0.7:
+                conf_str = f"[red]{conf_str}[/red]"
+
             table.add_row(
                 kpi.get("name", ""),
                 kpi.get("value", ""),
+                kpi.get("unit", ""),
                 kpi.get("kpi_type", ""),
                 kpi.get("party", ""),
-                kpi.get("section", ""),
+                kpi.get("trigger_condition", "")[:100],
+                conf_str,
             )
 
         console.print(table)
+    else:
+        console.print("[yellow]No specific KPIs found in this contract context.[/yellow]")
     
     # Financial Summary
     fin_summary = structured.get("financial_summary", "")
@@ -359,6 +388,32 @@ def _display_kpi_result(result: dict[str, Any]) -> None:
     if penalties:
         p_text = "\n".join([f"• {p}" for p in penalties])
         console.print(Panel(p_text, title="Penalty Structure"))
+
+
+def _save_result_to_file(result: dict[str, Any], filename: str, fmt: str) -> None:
+    """Save analysis results to a file."""
+    try:
+        if fmt == "json":
+            with open(filename, "w") as f:
+                json.dump(result, f, indent=2)
+        elif fmt == "csv":
+            import csv
+            structured = result.get("structured", {})
+            kpis = structured.get("kpis", [])
+            
+            if not kpis:
+                console.print("[yellow]No KPIs to save to CSV.[/yellow]")
+                return
+                
+            keys = kpis[0].keys()
+            with open(filename, "w", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=keys)
+                writer.writeheader()
+                writer.writerows(kpis)
+        
+        console.print(f"[green]✓ Saved to {filename}[/green]")
+    except Exception as e:
+        console.print(f"[red]Error saving file: {str(e)}[/red]")
 
 
 if __name__ == "__main__":

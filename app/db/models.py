@@ -1,4 +1,4 @@
-"""Pydantic models for MongoDB documents."""
+"""Pydantic models for MongoDB documents — corrected and extended."""
 
 from datetime import datetime
 from typing import Any
@@ -7,12 +7,12 @@ from uuid import uuid4
 from pydantic import BaseModel, Field, field_validator
 
 
-class ContractMetadata(BaseModel):
-    """Metadata extracted from contract parsing."""
+# ── MongoDB document models ───────────────────────────────────────────
 
+class ContractMetadata(BaseModel):
     contract_id: str = Field(default_factory=lambda: str(uuid4()))
     name: str
-    contract_type: str | None = None  # NDA / SaaS / Vendor / M&A / Employment / Other
+    contract_type: str | None = None
     parties: list[dict[str, str]] = Field(default_factory=list)
     effective_date: str | None = None
     governing_law: str | None = None
@@ -23,8 +23,6 @@ class ContractMetadata(BaseModel):
 
 
 class StructuralSection(BaseModel):
-    """A section in the contract structural map."""
-
     section_id: str
     title: str
     level: int
@@ -36,17 +34,13 @@ class StructuralSection(BaseModel):
 
 
 class StructuralMap(BaseModel):
-    """Structural map of the contract."""
-
     sections: list[StructuralSection] = Field(default_factory=list)
 
 
 class ChunkDocument(BaseModel):
-    """A chunk document for MongoDB storage."""
-
     chunk_id: str = Field(default_factory=lambda: str(uuid4()))
     contract_id: str
-    chunk_level: str  # macro/meso/micro
+    chunk_level: str   # macro / meso / micro
     text: str
     token_count: int
     structural_path: str
@@ -60,14 +54,12 @@ class ChunkDocument(BaseModel):
 
 
 class AnalysisJob(BaseModel):
-    """Analysis job tracking."""
-
     job_id: str = Field(default_factory=lambda: str(uuid4()))
     contract_id: str
     intent: str
     sub_intents: list[str] = Field(default_factory=list)
     user_query: str | None = None
-    status: str = "pending"  # pending/running/completed/failed
+    status: str = "pending"   # pending / running / completed / failed
     result: dict[str, Any] | None = None
     error_message: str | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -75,47 +67,43 @@ class AnalysisJob(BaseModel):
     corpus_query: bool = False
 
 
-# Analysis Output Schemas
+# ── Shared output sub-models ──────────────────────────────────────────
 
 class BaseAnalysisOutput(BaseModel):
     """Base class for all analysis outputs."""
-
     needs_more_context: bool = False
     additional_tags_needed: list[str] = Field(default_factory=list)
 
 
-# Shared nested models
 class KeyDate(BaseModel):
-    """A key date or deadline."""
     event_name: str
     date_value: str
     description: str = ""
 
+
 class MissingClause(BaseModel):
-    """A missing clause that should be present."""
     clause_name: str
     description: str = ""
 
+
 class UnusualClause(BaseModel):
-    """An unusual or non-standard clause."""
     clause_name: str
     clause_text: str = ""
     reason: str = ""
 
+
 class KeyParty(BaseModel):
-    """A key party in the contract."""
     party_name: str
     role: str
     description: str = ""
 
 
-# Risk Analysis
-class RiskItem(BaseModel):
-    """A single risk item."""
+# ── Risk Analysis ─────────────────────────────────────────────────────
 
+class RiskItem(BaseModel):
     risk_id: str = Field(default_factory=lambda: str(uuid4()))
     severity: int = Field(ge=1, le=5)
-    risk_type: str  # financial/reputational/operational/legal
+    risk_type: str          # financial / reputational / operational / legal
     exposed_party: str
     section: str
     structural_path: str
@@ -126,47 +114,54 @@ class RiskItem(BaseModel):
 
 
 class RiskAnalysisOutput(BaseAnalysisOutput):
-    """Risk analysis output schema."""
-
     overall_risk_score: float = Field(ge=0.0, le=10.0)
-    risk_grade: str  # A/B/C/D/F
+    risk_grade: str          # A / B / C / D / F
     risks: list[RiskItem] = Field(default_factory=list)
     heatmap_by_section: dict[str, int] = Field(default_factory=dict)
     human_review_flags: list[str] = Field(default_factory=list)
 
 
-# KPI Analysis
-class KPIItem(BaseModel):
-    """A single KPI item."""
+# ── KPI Extraction ────────────────────────────────────────────────────
 
-    kpi_id: str = Field(default_factory=lambda: str(uuid4()))
-    name: str
-    value: str
-    unit: str
-    kpi_type: str  # financial/timeline/volume/sla/penalty/other
-    party: str
-    trigger_condition: str
-    section: str
-    structural_path: str
-    clause_text: str
-    confidence: float = Field(ge=0.0, le=1.0)
+class KPIItem(BaseModel):
+    kpi_id: str = Field(default_factory=lambda: str(uuid4()), description="Unique identifier for the KPI")
+    name: str = Field(description="Descriptive name of the KPI (e.g., 'Late Delivery Penalty')")
+    value: str = Field(description="The numeric value or threshold (e.g., '500', '99.5')")
+    unit: str = Field(description="The unit of measurement (e.g., 'USD', '%', 'hours')")
+    kpi_type: str = Field(description="Category: financial / timeline / volume / sla / penalty / other")
+    party: str = Field(description="The party responsible for meeting this KPI or paying the penalty")
+    trigger_condition: str = Field(description="The specific condition that triggers this KPI or penalty")
+    section: str = Field(description="The section title where this KPI was found")
+    structural_path: str = Field(description="The full hierarchical path (e.g., 'Article IV > Section 4.1')")
+    clause_text: str = Field(description="Verbatim text from the contract containing the KPI (max 60 words)")
+    confidence: float = Field(ge=0.0, le=1.0, description="Confidence score from 0.0 to 1.0. Use 0.8-0.9 for likely but partially detailed items.")
 
 
 class KPIExtractionOutput(BaseAnalysisOutput):
-    """KPI extraction output schema."""
-
-    kpis: list[KPIItem] = Field(default_factory=list)
+    kpis: list[KPIItem] = Field(description="Exhaustive list of all extracted KPIs")
     financial_summary: str = ""
     key_dates: list[KeyDate] = Field(default_factory=list)
+    # NOTE: field renamed from `penalty_structure` (string) to `penalties` (list)
+    # to match the prompt v3 output rules and the CLI display logic.
     penalties: list[str] = Field(default_factory=list)
 
+    # ── backwards-compat shim ──────────────────────────────────────────
+    @field_validator("penalties", mode="before")
+    @classmethod
+    def coerce_penalties(cls, v: Any) -> list[str]:
+        """Accept either a list[str] or a plain string from older LLM outputs."""
+        if isinstance(v, str):
+            return [v] if v else []
+        if v is None:
+            return []
+        return v
 
-# Clause Analysis
+
+# ── Clause Analysis ───────────────────────────────────────────────────
+
 class ClauseItem(BaseModel):
-    """A single clause item."""
-
     clause_type: str
-    status: str  # present/absent/modified/unusual
+    status: str             # present / absent / modified / unusual
     section: str
     structural_path: str
     clause_text: str = ""
@@ -175,21 +170,18 @@ class ClauseItem(BaseModel):
 
 
 class ClauseAnalysisOutput(BaseAnalysisOutput):
-    """Clause analysis output schema."""
-
     clause_inventory: list[ClauseItem] = Field(default_factory=list)
     missing_clauses: list[MissingClause] = Field(default_factory=list)
     unusual_clauses: list[UnusualClause] = Field(default_factory=list)
 
 
-# Obligation Analysis
-class ObligationItem(BaseModel):
-    """A single obligation item."""
+# ── Obligation Tracking ───────────────────────────────────────────────
 
+class ObligationItem(BaseModel):
     obligation_id: str = Field(default_factory=lambda: str(uuid4()))
     text: str
     party: str
-    obligation_type: str  # obligation/prohibition/condition
+    obligation_type: str    # obligation / prohibition / condition
     deadline: str = ""
     trigger_condition: str = ""
     consequence_of_breach: str = ""
@@ -199,17 +191,14 @@ class ObligationItem(BaseModel):
 
 
 class ObligationTrackingOutput(BaseAnalysisOutput):
-    """Obligation tracking output schema."""
-
     obligations: list[ObligationItem] = Field(default_factory=list)
     by_party: dict[str, list[ObligationItem]] = Field(default_factory=dict)
     upcoming_deadlines: list[KeyDate] = Field(default_factory=list)
 
 
-# Summary Output
-class SummaryOutput(BaseAnalysisOutput):
-    """Summary output schema."""
+# ── Summary ───────────────────────────────────────────────────────────
 
+class SummaryOutput(BaseAnalysisOutput):
     executive_summary: str
     deal_structure: str
     key_parties: list[KeyParty] = Field(default_factory=list)
@@ -219,12 +208,11 @@ class SummaryOutput(BaseAnalysisOutput):
     dispute_mechanism: str = ""
 
 
-# Red Flag Output
-class RedFlag(BaseModel):
-    """A single red flag item."""
+# ── Red Flag Analysis ─────────────────────────────────────────────────
 
+class RedFlag(BaseModel):
     flag_id: str = Field(default_factory=lambda: str(uuid4()))
-    severity: str  # Critical/High/Medium/Low
+    severity: str           # Critical / High / Medium / Low
     flag_type: str
     section: str
     structural_path: str
@@ -235,8 +223,6 @@ class RedFlag(BaseModel):
 
 
 class RedFlagOutput(BaseAnalysisOutput):
-    """Red flag analysis output schema."""
-
     flags: list[RedFlag] = Field(default_factory=list)
     missing_clauses: list[MissingClause] = Field(default_factory=list)
     severity_summary: dict[str, int] = Field(default_factory=dict)

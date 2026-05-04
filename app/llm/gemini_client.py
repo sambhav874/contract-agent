@@ -1,23 +1,22 @@
-"""Gemini API client wrapper with retry logic."""
+"""Gemini API client using official google-genai SDK."""
 
-import asyncio
+import json
 import time
+import asyncio
 from typing import Any
 
-import httpx
-from pydantic import BaseModel
+from google import genai
+from google.genai import types
 
 from app.config import settings
 
 
 class GeminiClient:
-    """Gemini API client with retry logic and logging."""
+    """Client for interacting with Google Gemini API via official SDK."""
 
     def __init__(self):
-        self.api_key = settings.gemini_api_key
-        self.base_url = "https://generativelanguage.googleapis.com/v1beta"
-        self.max_retries = 3
-        self.base_delay = 1.0
+        # Use the new SDK's client
+        self.client = genai.Client(api_key=settings.gemini_api_key)
 
     async def call(
         self,
@@ -26,131 +25,80 @@ class GeminiClient:
         user_message: str,
         response_schema: dict[str, Any] | None = None,
         temperature: float = 0.0,
-        max_retries: int = 3,
     ) -> dict[str, Any]:
         """
-        Call Gemini API with retry logic.
-
-        Args:
-            model: Model name (e.g., gemini-1.5-pro)
-            system_prompt: System instruction
-            user_message: User message
-            response_schema: Optional JSON schema for structured output
-            temperature: Temperature for generation
-            max_retries: Maximum retry attempts
-
-        Returns:
-            Parsed response dict
+        Call Gemini model and return structured response.
+        
+        Uses response_json_schema for robust JSON extraction as suggested by user.
         """
         start_time = time.time()
-
-        for attempt in range(max_retries + 1):
-            try:
-                async with httpx.AsyncClient(timeout=300.0) as client:
-                    payload = self._build_payload(
-                        system_prompt=system_prompt,
-                        user_message=user_message,
-                        response_schema=response_schema,
-                        temperature=temperature,
-                    )
-
-                    response = await client.post(
-                        f"{self.base_url}/models/{model}:generateContent",
-                        params={"key": self.api_key},
-                        json=payload,
-                    )
-
-                    latency_ms = int((time.time() - start_time) * 1000)
-
-                    # Log the call
-                    self._log_call(
-                        model=model,
-                        temperature=temperature,
-                        latency_ms=latency_ms,
-                        status_code=response.status_code,
-                    )
-
-                    response.raise_for_status()
-                    result = response.json()
-
-                    # Parse response
-                    return self._parse_response(result)
-
-            except httpx.HTTPStatusError as e:
-                if e.response.status_code == 429:  # Rate limit
-                    if attempt < max_retries:
-                        delay = self.base_delay * (2 ** attempt)
-                        await asyncio.sleep(delay)
-                        continue
-                print(f"DEBUG HTTP Error: {e.response.status_code} - {e.response.text}")
-                raise
-
-        raise RuntimeError(f"Failed after {max_retries} retries")
-
-    def _build_payload(
-        self,
-        system_prompt: str,
-        user_message: str,
-        response_schema: dict[str, Any] | None,
-        temperature: float,
-    ) -> dict[str, Any]:
-        """Build API request payload."""
-        payload: dict[str, Any] = {
-            "contents": [{
-                "parts": [{
-                    "text": f"{system_prompt}\n\n{user_message}"
-                }]
-            }],
-            "generationConfig": {
-                "temperature": temperature,
-                "maxOutputTokens": 8192,
-            },
+        
+        # Configure the generation
+        config = {
+            "temperature": temperature,
+            "system_instruction": system_prompt,
         }
-
+        
         if response_schema:
-            payload["generationConfig"]["responseMimeType"] = "application/json"
-            payload["generationConfig"]["responseSchema"] = self._clean_schema_for_gemini(response_schema)
+            config["response_mime_type"] = "application/json"
+            # Note: the new SDK handles the translation from standard JSON schema 
+            # to Gemini's internal format, so we can pass the raw schema.
+            config["response_json_schema"] = response_schema
 
-        return payload
-
-    def _parse_response(self, result: dict[str, Any]) -> dict[str, Any]:
-        """Parse API response."""
         try:
-            candidates = result.get("candidates", [])
-            if not candidates:
-                raise ValueError("No candidates in response")
+            # The SDK is primarily synchronous for generate_content currently in the stable version,
+            # so we run it in a thread to avoid blocking the event loop.
+            # (Note: google-genai 0.x/1.x is evolving, so we use a safe async wrapper)
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                lambda: self.client.models.generate_content(
+                    model=model,
+                    contents=user_message,
+                    config=config,
+                )
+            )
+            
+            latency_ms = int((time.time() - start_time) * 1000)
+            self._log_call(model, temperature, latency_ms, 200)
 
-            content = candidates[0].get("content", {})
-            parts = content.get("parts", [])
+            return self._parse_response(response)
 
-            if not parts:
-                raise ValueError("No parts in content")
+        except Exception as e:
+            latency_ms = int((time.time() - start_time) * 1000)
+            self._log_call(model, temperature, latency_ms, 500)
+            raise ValueError(f"Gemini API call failed: {e}")
 
-            text = parts[0].get("text", "")
-
+    def _parse_response(self, response: Any) -> dict[str, Any]:
+        """Parse SDK response."""
+        try:
+            # The SDK response has a .text attribute for the combined response parts
+            text = response.text
+            
             print("DEBUG: Gemini response text:", repr(text))
-
+            
             text = text.strip()
-            if text.startswith("```json"):
-                text = text[7:]
-            elif text.startswith("```"):
-                text = text[3:]
-            if text.endswith("```"):
-                text = text[:-3]
-            text = text.strip()
-
-            import json
+            
+            # Use json.loads directly as response_mime_type="application/json" 
+            # should prevent the model from wrapping in Markdown blocks.
             try:
                 return json.loads(text)
             except json.JSONDecodeError:
-                # If we didn't ask for JSON, return as text
-                return {"text": text}
+                # If it still has markdown blocks for some reason, clean them
+                if text.startswith("```json"):
+                    text = text[7:]
+                elif text.startswith("```"):
+                    text = text[3:]
+                if text.endswith("```"):
+                    text = text[:-3]
+                text = text.strip()
+                try:
+                    return json.loads(text)
+                except json.JSONDecodeError:
+                    return {"text": text}
 
         except Exception as e:
-            if "text" in locals():
-                with open("failed_gemini_response.txt", "w") as f:
-                    f.write(text)
-            raise ValueError(f"Failed to parse response: {e}. Raw response saved to failed_gemini_response.txt")
+            raise ValueError(f"Failed to parse SDK response: {e}")
 
     def _log_call(
         self,
@@ -162,47 +110,6 @@ class GeminiClient:
         """Log API call metadata."""
         # In production, this would log to a monitoring system
         pass
-
-    def _clean_schema_for_gemini(self, schema: dict[str, Any], defs: dict[str, Any] | None = None) -> dict[str, Any]:
-        """Clean a JSON schema to be compatible with Gemini REST API responseSchema."""
-        if defs is None:
-            defs = schema.get("$defs", {})
-            
-        cleaned: dict[str, Any] = {}
-        
-        allowed_keys = {
-            "type", "format", "description", "nullable", "enum",
-            "maxItems", "minItems", "properties", "required", "items"
-        }
-        
-        for k, v in schema.items():
-            if k == "$ref" and isinstance(v, str):
-                ref_name = v.split("/")[-1]
-                if ref_name in defs:
-                    resolved = self._clean_schema_for_gemini(defs[ref_name], defs)
-                    for rk, rv in resolved.items():
-                        cleaned[rk] = rv
-                continue
-                
-            if k not in allowed_keys:
-                continue
-                
-            if isinstance(v, dict):
-                if k == "properties":
-                    cleaned[k] = {pk: self._clean_schema_for_gemini(pv, defs) for pk, pv in v.items()}
-                elif k == "items":
-                    cleaned[k] = self._clean_schema_for_gemini(v, defs)
-                else:
-                    cleaned[k] = self._clean_schema_for_gemini(v, defs)
-            elif isinstance(v, list) and k == "items":
-                cleaned[k] = [self._clean_schema_for_gemini(item, defs) for item in v]
-            else:
-                cleaned[k] = v
-                
-        if "type" in cleaned and isinstance(cleaned["type"], str):
-            cleaned["type"] = cleaned["type"].upper()
-            
-        return cleaned
 
 
 # Global client instance

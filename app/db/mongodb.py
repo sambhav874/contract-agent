@@ -113,6 +113,15 @@ Or in Atlas UI: Collections > chunks > Create Index > Vector Search
         await collection.update_one({"job_id": job_id}, {"$set": update})
 
     @classmethod
+    async def get_latest_job(cls, contract_id: str, intent: str) -> dict[str, Any] | None:
+        """Get the latest completed job for a contract and intent."""
+        collection = cls.get_collection("analysis_jobs")
+        return await collection.find_one(
+            {"contract_id": contract_id, "intent": intent, "status": "completed"},
+            sort=[("created_at", -1)]
+        )
+
+    @classmethod
     async def insert_analysis_job(cls, job_data: dict[str, Any]) -> str:
         """Insert a new analysis job."""
         collection = cls.get_collection("analysis_jobs")
