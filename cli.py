@@ -3,6 +3,7 @@
 
 import asyncio
 import json
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -35,13 +36,19 @@ def cli():
 @cli.command()
 @click.argument("file_path")
 @click.option("--name", "-n", help="Contract name")
-@click.option("--async", "is_async", default=False, help="Run asynchronously")
-def ingest(file_path: str, name: str | None, is_async: bool = False):
+@click.option("--id", "contract_id_opt", help="Override contract ID")
+@click.option("--overwrite", is_flag=True, default=False, help="Overwrite existing contract and chunks")
+@click.option("--async", "is_async", default=False, help="Run asynchronously (legacy)")
+def ingest(file_path: str, name: str | None = None, contract_id_opt: str | None = None, overwrite: bool = False, is_async: bool = False):
     """Ingest a contract file."""
     console.print(f"[bold blue]Ingesting:[/bold blue] {file_path}")
 
     # Parse contract
     contract_metadata, structural_map = asyncio.run(parse_contract(file_path, name))
+    
+    # Override ID if provided
+    if contract_id_opt:
+        contract_metadata.contract_id = contract_id_opt
 
     with open(file_path, "r") as f:
         text = f.read()
@@ -52,19 +59,30 @@ def ingest(file_path: str, name: str | None, is_async: bool = False):
     console.print(f"  [green]✓[/green] Parsed {len(structural_map.sections)} sections")
     console.print(f"  [green]✓[/green] Created {len(chunks)} chunks")
 
-    # Embed chunks
-    embedder = get_embedding_service()
-    embedded_chunks = asyncio.run(embedder.embed_chunks(chunks))
-
-    console.print(f"  [green]✓[/green] Embedded {len(embedded_chunks)} chunks")
-
-    # Store in MongoDB
-    async def save_to_db():
+    async def _run_ingestion():
         await MongoDB.connect()
+        
+        # Handle overwrite
+        existing = await MongoDB.get_contract(contract_metadata.contract_id)
+        if existing:
+            if not overwrite:
+                console.print(f"[yellow]Contract {contract_metadata.contract_id} already exists. Use --overwrite to replace.[/yellow]")
+                return
+            console.print(f"[yellow]Overwriting existing contract {contract_metadata.contract_id}...[/yellow]")
+            await MongoDB.delete_contract(contract_metadata.contract_id)
+
+        # Embed
+        embedder = get_embedding_service()
+        embedded_chunks = await embedder.embed_chunks(chunks)
+        console.print(f"  [green]✓[/green] Embedded {len(embedded_chunks)} chunks")
+
+        # Store in MongoDB
         await MongoDB.insert_contract(contract_metadata)
         await MongoDB.insert_chunks(embedded_chunks)
+        
+        await MongoDB.disconnect()
 
-    asyncio.run(save_to_db())
+    asyncio.run(_run_ingestion())
 
     console.print(f"  [green]✓[/green] Stored in MongoDB")
     console.print(f"\n[bold]Contract ID:[/bold] {contract_metadata.contract_id}")
@@ -109,7 +127,8 @@ def list():
 @click.option("--q", help="Free-text query")
 @click.option("--sync", is_flag=True, default=False, help="Run synchronously")
 @click.option("--mode", default="plain", help="Analysis mode (plain/legal)")
-def analyse(contract_id: str, intent: str, q: str | None = None, sync: bool = False, mode: str = "plain"):
+@click.option("--csv", help="Path to save results as CSV")
+def analyse(contract_id: str, intent: str, q: str | None = None, sync: bool = False, mode: str = "plain", csv: str | None = None):
     """Run analysis on a contract."""
     console.print(f"[bold blue]Analyzing:[/bold blue] {contract_id}")
     console.print(f"[bold]Intent:[/bold] {intent}")
@@ -179,6 +198,10 @@ def analyse(contract_id: str, intent: str, q: str | None = None, sync: bool = Fa
                 "completed_at": datetime.now(timezone.utc)
             })
 
+            # Auto-export to CSV if requested
+            if csv:
+                _save_result_to_file(result, csv, "csv")
+
             return result
 
         console.print("[yellow]Running analysis (this may take a moment)...[/yellow]")
@@ -186,6 +209,19 @@ def analyse(contract_id: str, intent: str, q: str | None = None, sync: bool = Fa
             result = asyncio.run(_run_sync())
             console.print("[green]✓ Analysis complete and persisted to database[/green]")
             _display_analysis_result(result, intent)
+
+            # Auto-save to local JSON so results are always on disk
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            auto_path = Path(f"results_{contract_id}_{intent}_{ts}.json")
+            try:
+                with open(auto_path, "w") as f:
+                    json.dump(result, f, indent=2, default=str)
+                console.print(f"[dim]Results saved → {auto_path}[/dim]")
+                console.print(
+                    f"[dim]To export later: python cli.py export {contract_id} --intent {intent} -o out.json[/dim]"
+                )
+            except Exception:
+                pass
         except Exception as e:
             import traceback
             traceback.print_exc()
@@ -290,6 +326,221 @@ def export(identifier: str, fmt: str = "json", output: str | None = None, intent
 def delete(contract_id: str):
     """Delete a contract."""
     console.print("[yellow]Delete functionality coming soon.[/yellow]")
+
+
+@cli.command()
+@click.argument("contract_id")
+@click.option(
+    "--csv", "csv_path",
+    default="exhaustive_kpis.csv",
+    show_default=True,
+    help="Ground-truth KPI CSV to evaluate against.",
+)
+@click.option(
+    "--output", "-o",
+    default="evaluation_results_rag.json",
+    show_default=True,
+    help="Path to write the evaluation report JSON.",
+)
+@click.option(
+    "--max-samples", default=20, show_default=True,
+    help="Maximum KPI rows to evaluate (keeps cost low).",
+)
+@click.option(
+    "--top-k", default=10, show_default=True,
+    help="Chunks retrieved per question.",
+)
+def evaluate(contract_id: str, csv_path: str, output: str, max_samples: int, top_k: int):
+    """
+    Run RAG evaluation for a contract against a ground-truth KPI CSV.
+
+    Evaluates four metrics using Gemini as the judge LLM:
+
+      \b
+      • Faithfulness      — Are answers grounded in the retrieved context?
+      • Answer Relevance  — Does the answer address the question?
+      • Context Recall    — Are ground-truth facts present in context?
+      • Context Precision — Are retrieved chunks actually useful?
+
+    Results are printed to the terminal AND saved to --output.
+    """
+    from app.evaluation.rag_evaluator import RAGEvaluator
+
+    csv_file = Path(csv_path)
+    if not csv_file.exists():
+        console.print(f"[red]CSV not found: {csv_path}[/red]")
+        console.print("Provide --csv path to a KPI ground-truth file.")
+        return
+
+    async def _run():
+        await MongoDB.connect()
+        evaluator = RAGEvaluator()
+        console.print(
+            f"[bold blue]Evaluating:[/bold blue] {contract_id}\n"
+            f"[dim]CSV: {csv_path} | top_k={top_k} | max_samples={max_samples}[/dim]"
+        )
+        t0 = time.perf_counter()
+        report = await evaluator.evaluate_from_csv(
+            csv_path=str(csv_file),
+            contract_id=contract_id,
+            top_k=top_k,
+            max_samples=max_samples,
+        )
+        elapsed = round(time.perf_counter() - t0, 1)
+        return report, elapsed
+
+    try:
+        report, elapsed = asyncio.run(_run())
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        console.print(f"[red]Evaluation failed: {e}[/red]")
+        return
+
+    # ── Pretty-print summary table ────────────────────────────────────
+    from rich.table import Table as RTable
+    table = RTable(title=f"RAG Evaluation — {contract_id}", show_lines=True)
+    table.add_column("Metric",            style="cyan",   no_wrap=True)
+    table.add_column("Score (0–1)",       style="green",  justify="right")
+    table.add_column("What it measures",  style="dim")
+
+    rows = [
+        ("Faithfulness",      report.mean_faithfulness,      "Claims in answer are grounded in context"),
+        ("Answer Relevance",  report.mean_answer_relevance,  "Answer actually addresses the question"),
+        ("Context Recall",    report.mean_context_recall,    "Ground-truth facts present in context"),
+        ("Context Precision", report.mean_context_precision, "Retrieved chunks are useful (low noise)"),
+        ("Aggregate",         report.mean_aggregate,         "Weighted composite (faith 35% + rest 25/20/20%)"),
+    ]
+    for label, score, desc in rows:
+        color = "green" if score >= 0.75 else ("yellow" if score >= 0.5 else "red")
+        table.add_row(label, f"[{color}]{score:.3f}[/{color}]", desc)
+
+    console.print(table)
+    console.print(
+        f"[dim]Evaluated {len(report.samples)} samples in {elapsed}s[/dim]\n"
+        f"[dim]Per-sample detail → {output}[/dim]"
+    )
+
+    # ── Save full report ──────────────────────────────────────────────
+    out_path = Path(output)
+    try:
+        with open(out_path, "w") as f:
+            json.dump(report.to_dict(), f, indent=2, default=str)
+        console.print(f"[green]✓ Full report saved → {out_path.resolve()}[/green]")
+    except Exception as e:
+        console.print(f"[red]Could not save report: {e}[/red]")
+
+
+@cli.command()
+@click.argument("contract_id")
+@click.option(
+    "--csv", "csv_path",
+    default="exhaustive_kpis.csv",
+    show_default=True,
+    help="Ground-truth KPI CSV to evaluate against.",
+)
+@click.option(
+    "--max-samples", default=10, show_default=True,
+    help="Maximum KPI rows to evaluate.",
+)
+def evaluate_ragas(contract_id: str, csv_path: str, max_samples: int):
+    """
+    Run the Ragas RAG evaluation (Faithfulness, Relevance, Precision, Recall).
+
+    Phase 1 (async):  retrieve contexts + generate answers.
+    Phase 2 (sync):   call ragas.evaluate() outside any event loop.
+    """
+    import csv
+    from app.evaluation.ragas_eval import RagasEvaluator
+
+    csv_file = Path(csv_path)
+    if not csv_file.exists():
+        console.print(f"[red]CSV not found: {csv_path}[/red]")
+        return
+
+    # --- Load test set from CSV ----------------------------------------- #
+    test_set = []
+    with open(csv_file, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            name  = row.get("name",   row.get("KPI Name", ""))
+            val   = row.get("value",  row.get("Value", ""))
+            unit  = row.get("unit",   row.get("Unit", ""))
+            # clause_text gives Ragas a real sentence to compare against retrieved context.
+            # Fallback to "name is value unit" if clause_text is absent.
+            clause = row.get("clause_text", "").strip()
+            trigger = row.get("trigger_condition", "").strip()
+            if clause:
+                ground_truth = clause
+            elif trigger:
+                ground_truth = f"{name}: {val} {unit}. Condition: {trigger}".strip()
+            else:
+                ground_truth = f"{name} is {val} {unit}".strip()
+
+            if name and val:
+                test_set.append({
+                    "query":  f"What is the {name} KPI in this contract?",
+                    "answer": ground_truth,
+                })
+            if len(test_set) >= max_samples:
+                break
+
+
+    if not test_set:
+        console.print("[yellow]No valid samples found in CSV.[/yellow]")
+        return
+
+    console.print(f"[bold blue]Ragas Eval:[/bold blue] {contract_id} — {len(test_set)} sample(s)")
+    evaluator = RagasEvaluator()
+
+    # --- Phase 1: async retrieval + generation (NO ragas inside here) --- #
+    console.print("[dim]Phase 1: retrieving contexts and generating answers…[/dim]")
+    try:
+        dataset = asyncio.run(evaluator.build_eval_dataset(contract_id, test_set))
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        console.print(f"[red]Retrieval/generation failed: {e}[/red]")
+        return
+
+    # --- Phase 2: synchronous ragas.evaluate() (outside asyncio.run) ---- #
+    console.print("[dim]Phase 2: scoring with Ragas…[/dim]")
+    try:
+        report = evaluator.score(dataset)
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        console.print(f"[red]Ragas scoring failed: {e}[/red]")
+        return
+
+    # --- Display results ------------------------------------------------- #
+    agg = report["aggregate_scores"]
+    if agg:
+        console.print("\n[bold]Aggregate Metrics:[/bold]")
+        for metric_name, score in agg.items():
+            bar = "█" * int((score or 0) * 20)
+            console.print(f"  {metric_name:<25} {score:.4f}  {bar}")
+    else:
+        console.print("[yellow]No scores returned — Ragas jobs may have timed out.[/yellow]")
+
+    details = report.get("details", [])
+    if details:
+        table = Table(title="Ragas Detailed Results", show_lines=True)
+        table.add_column("Query", style="cyan", max_width=40)
+        table.add_column("Faithfulness", style="magenta", justify="center")
+        table.add_column("Relevance",    style="magenta", justify="center")
+        table.add_column("Precision",    style="yellow",  justify="center")
+        table.add_column("Recall",       style="yellow",  justify="center")
+
+        for d in details:
+            def fmt(v):
+                return f"{v:.2f}" if isinstance(v, float) else str(v)
+            table.add_row(
+                (d.get("question", "")[:40] + "…"),
+                fmt(d.get("faithfulness", float("nan"))),
+                fmt(d.get("answer_relevancy", float("nan"))),
+                fmt(d.get("context_precision", float("nan"))),
+                fmt(d.get("context_recall", float("nan"))),
+            )
+        console.print(table)
 
 
 def _display_analysis_result(result: dict[str, Any], intent: str) -> None:

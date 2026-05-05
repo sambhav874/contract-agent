@@ -128,6 +128,15 @@ class KPIItem(BaseModel):
     name: str = Field(description="Descriptive name of the KPI (e.g., 'Late Delivery Penalty')")
     value: str = Field(description="The numeric value or threshold (e.g., '500', '99.5')")
     unit: str = Field(description="The unit of measurement (e.g., 'USD', '%', 'hours')")
+    
+    # ── Quantitative Fields (for SQL matching) ───────────────────────
+    value_min: float | None = Field(None, description="Minimum threshold (for ranges or single values)")
+    value_max: float | None = Field(None, description="Maximum threshold (only for 'between' ranges)")
+    operator: str | None = Field(None, description="Operator: '>=', '<=', '==', '<', '>', or 'between'")
+    consequence_value: float | None = Field(None, description="Numeric consequence (e.g., 500.0)")
+    consequence_unit: str | None = Field(None, description="Unit for consequence (e.g., 'USD', '%')")
+    # ────────────────────────────────────────────────────────────────
+
     kpi_type: str = Field(description="Category: financial / timeline / volume / sla / penalty / other")
     party: str = Field(description="The party responsible for meeting this KPI or paying the penalty")
     trigger_condition: str = Field(description="The specific condition that triggers this KPI or penalty")
@@ -135,6 +144,7 @@ class KPIItem(BaseModel):
     structural_path: str = Field(description="The full hierarchical path (e.g., 'Article IV > Section 4.1')")
     clause_text: str = Field(description="Verbatim text from the contract containing the KPI (max 60 words)")
     confidence: float = Field(ge=0.0, le=1.0, description="Confidence score from 0.0 to 1.0. Use 0.8-0.9 for likely but partially detailed items.")
+
 
 
 class KPIExtractionOutput(BaseAnalysisOutput):
@@ -226,3 +236,39 @@ class RedFlagOutput(BaseAnalysisOutput):
     flags: list[RedFlag] = Field(default_factory=list)
     missing_clauses: list[MissingClause] = Field(default_factory=list)
     severity_summary: dict[str, int] = Field(default_factory=dict)
+# ── Operational Event Processing ──────────────────────────────────────
+
+class EventMapping(BaseModel):
+    kpi_id: str = Field(description="The ID of the KPI this event is relevant to (e.g., KPI-1)")
+    relevance_score: float = Field(ge=0.0, le=1.0, description="How relevant the event is to the KPI")
+    actual_value: float = Field(description="The numeric value extracted from the event")
+    unit: str = Field(description="The unit of the actual value")
+    reasoning: str = Field(description="Explanation of why this event maps to the KPI and how the value was extracted")
+
+class EventAnalysisOutput(BaseAnalysisOutput):
+    mappings: list[EventMapping] = Field(description="List of KPIs this event influences")
+    is_actionable: bool = Field(description="Whether this event provides enough data to check a KPI")
+
+# ── Operational Actuals (Performance Data) ───────────────────────────
+
+class OperationalActual(BaseModel):
+    actual_id: str = Field(default_factory=lambda: str(uuid4()))
+    contract_id: str
+    kpi_id: str
+    value: float
+    unit: str
+    timestamp: str = Field(default_factory=lambda: datetime.now().isoformat())
+    source: str = "manual"  # manual / email / api / erp
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+class BreachResult(BaseModel):
+    breach_id: str = Field(default_factory=lambda: str(uuid4()))
+    contract_id: str
+    kpi_id: str
+    actual_value: float
+    threshold_value: float
+    operator: str
+    is_breach: bool
+    penalty_triggered: str | None = None
+    penalty_amount: float = 0.0
+    timestamp: str = Field(default_factory=lambda: datetime.now().isoformat())

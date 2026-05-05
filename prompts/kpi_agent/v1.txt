@@ -25,6 +25,20 @@ Your extraction philosophy:
 
 Extract **every single quantitative contractual commitment** from the provided chunks. This is an **exhaustive inventory** exercise. Include all items where your confidence is **0.80 or higher**. Nothing numeric is too small.
 
+### QUANTITATIVE EXTRACTION RULES:
+To enable data-driven tracking, you MUST decompose qualitative strings into quantitative fields:
+1. **`value_min`**: The minimum numeric threshold or the single threshold value.
+2. **`value_max`**: The maximum numeric threshold. Use ONLY for ranges (e.g., "between 95.0% and 96.9%").
+3. **`operator`**: Assign a logical operator based on the text:
+   - `>=` (at least, minimum, not less than)
+   - `<=` (at most, maximum, no more than)
+   - `==` (exactly, fixed at, or for specific amounts)
+   - `>` (exceeds, greater than)
+   - `<` (less than)
+   - `between` (for ranges like "95.0% - 96.9%" or "between X and Y")
+4. **`consequence_value`**: If the KPI has a penalty or bonus amount, extract the number.
+5. **`consequence_unit`**: The unit for the consequence (e.g., `USD`, `%`).
+
 ---
 
 ## CRITICAL INSTRUCTIONS
@@ -103,12 +117,12 @@ For every penalty table, extract:
 
 ## OUTPUT RULES
 
-1. **STRICT JSON ONLY.** Your entire response must be a single JSON object matching the `KPIExtractionOutput` schema. No preamble, no conversational filler, no "Here is the result".
-2. **`kpis` (MANDATORY)**: A list of ALL KPIItem objects. You MUST include this key in your JSON, even if the list is empty. Be exhaustive. If you find 50 KPIs, list 50 KPIs.
-3. **`financial_summary`**: 3–5 bullet points covering the overall financial structure. Be punchy, not verbose.
-4. **`key_dates`**: All date-related obligations (contract start, milestones, renewal dates, deadlines).
-5. **`penalties`**: Short plain-English descriptions of each penalty regime (one line each).
-6. **`needs_more_context`**: Set to `true` if you detect mentions of KPIs (e.g., "KPI-15", "fifteen Key Performance Indicators") that are NOT fully detailed in the current chunks. If you believe you have found everything mentioned in the contract, set to `false`.
+1. **STRICT JSON ONLY.** Your entire response must be a single JSON object matching the `KPIExtractionOutput` schema.
+2. **`kpis` (MANDATORY)**: A list of ALL KPIItem objects. Be exhaustive.
+3. **`financial_summary`**: 3–5 bullet points covering the overall financial structure.
+4. **`key_dates`**: All date-related obligations.
+5. **`penalties`**: Short plain-English descriptions of each penalty regime.
+6. **`needs_more_context`**: Set to `true` if you detect mentions of KPIs that are NOT fully detailed.
 7. **ROUND CONSISTENCY**: If this is a subsequent round of analysis, you MUST include all KPIs found in previous rounds plus any new ones found in the current context. Do not drop items.
 
 
@@ -118,9 +132,14 @@ For every penalty table, extract:
 [
   {
     "kpi_id": "kpi_001",
-    "name": "KPI-2: Late Delivery Penalty (Critical Delay)",
-    "value": "$5,000",
-    "unit": "USD per flight",
+    "name": "KPI-1: Penalty Tier 1 (95.0% - 96.9%)",
+    "value": "95.0% - 96.9%",
+    "unit": "%",
+    "value_min": 95.0,
+    "value_max": 96.9,
+    "operator": "between",
+    "consequence_value": 2500,
+    "consequence_unit": "USD per percentage point",
     "kpi_type": "penalty",
     "party": "Concessionaire",
     "trigger_condition": "Meal arrives after aircraft departure",
@@ -130,17 +149,21 @@ For every penalty table, extract:
     "confidence": 1.0
   },
   {
-    "kpi_id": "kpi_014",
-    "name": "Daily Reporting Deadline",
-    "value": "10:00 AM",
-    "unit": "Time",
-    "kpi_type": "timeline",
+    "kpi_id": "kpi_005",
+    "name": "On-Time Performance Target",
+    "value": "99.5%",
+    "unit": "%",
+    "numeric_value": 99.5,
+    "operator": ">=",
+    "consequence_value": null,
+    "consequence_unit": null,
+    "kpi_type": "sla",
     "party": "Concessionaire",
-    "trigger_condition": "Submission of previous day operations report",
-    "section": "Section 6.01: Daily Reporting",
-    "structural_path": "Article VI > Section 6.01",
-    "clause_text": "Concessionaire shall submit daily reports by 10:00 AM for previous day operations",
-    "confidence": 0.85
+    "trigger_condition": "Monthly average on-time delivery rate",
+    "section": "Section 4.01: Performance Standards",
+    "structural_path": "Article IV > Section 4.01",
+    "clause_text": "The Concessionaire shall maintain an On-Time Performance rate of at least 99.5%",
+    "confidence": 1.0
   }
 ]
 ```

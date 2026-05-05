@@ -13,6 +13,11 @@ evaluation_results.json
 evaluation_results_v2.json
 failed_gemini_response.txt
 failed_gemini_response.json
+results_*.json
+*.csv
+logs/
+data/actuals/
+data/processed/
 
 # IDEs
 .vscode/

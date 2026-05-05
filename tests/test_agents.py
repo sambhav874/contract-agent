@@ -131,6 +131,10 @@ def test_kpi_item_structure():
         name="Subscription Fee",
         value="$120,000",
         unit="USD",
+        numeric_value=120000.0,
+        operator="==",
+        consequence_value=None,
+        consequence_unit=None,
         kpi_type="financial",
         party="Customer",
         trigger_condition="Annual",
@@ -139,6 +143,7 @@ def test_kpi_item_structure():
         clause_text="Customer shall pay $120,000 per year",
         confidence=0.95
     )
+
 
     assert kpi.name == "Subscription Fee"
     assert kpi.value == "$120,000"

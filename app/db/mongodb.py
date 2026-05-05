@@ -47,28 +47,29 @@ class MongoDB:
         await chunks.create_index([("contract_id", 1), ("chunk_level", 1), ("section_type_tags", 1)])
         await chunks.create_index("created_at")
 
-        # Vector search index info (created via Atlas UI or shell)
-        # Print instructions if index doesn't exist
+        # Vector search index (Atlas Vector Search — must be created via Atlas UI or Admin API)
+        # The index uses the *vectorSearch* type (not legacy 'vector').
+        # Pre-filter fields let $vectorSearch filter on contract_id / chunk_level / section_type_tags
+        # before ANN so the candidate pool stays contract-scoped.
         try:
             indexes = await chunks.list_indexes().to_list(None)
             has_vector_index = any(
                 idx.get("name") == "chunk_embedding_index" for idx in indexes
             )
             if not has_vector_index:
-                print("""
-Vector Search index not found. Create it in MongoDB Atlas or run:
-
-db.chunks.createIndex({
-  name: "chunk_embedding_index",
-  key: { embedding: "vector" },
-  numDimensions: 1024,
-  similarity: "cosine"
-})
-
-Or in Atlas UI: Collections > chunks > Create Index > Vector Search
-""")
+                import json as _json
+                index_def = cls.vector_search_index_definition()
+                print(
+                    "\n[contract-agent] Atlas Vector Search index not found.\n"
+                    "Create it in MongoDB Atlas UI:\n"
+                    "  Database > Search > Create Search Index > JSON Editor\n"
+                    "  Select 'Vector Search' type, target collection: chunks\n"
+                    "  Paste the following definition:\n\n"
+                    + _json.dumps(index_def, indent=2)
+                    + "\n\nOr use the Admin API / mongocli (see scripts/create_vector_index.py)\n"
+                )
         except Exception:
-            pass  # Index check failed, continue
+            pass  # Index check failed silently; Atlas may still have the index
 
         await jobs.create_index("status")
         await jobs.create_index("created_at")
@@ -91,6 +92,17 @@ Or in Atlas UI: Collections > chunks > Create Index > Vector Search
         """List all contracts."""
         collection = cls.get_collection("contracts")
         return await collection.find({}, {"embedding": 0}).to_list(None)
+
+    @classmethod
+    async def delete_contract(cls, contract_id: str) -> None:
+        """Delete a contract and all its chunks."""
+        contracts = cls.get_collection("contracts")
+        chunks = cls.get_collection("chunks")
+        jobs = cls.get_collection("analysis_jobs")
+
+        await contracts.delete_one({"contract_id": contract_id})
+        await chunks.delete_many({"contract_id": contract_id})
+        await jobs.delete_many({"contract_id": contract_id})
 
     @classmethod
     async def insert_chunks(cls, chunks: list[ChunkDocument]) -> list[str]:
@@ -127,6 +139,37 @@ Or in Atlas UI: Collections > chunks > Create Index > Vector Search
         collection = cls.get_collection("analysis_jobs")
         result = await collection.insert_one(job_data)
         return job_data.get("job_id", str(result.inserted_id))
+
+
+    @staticmethod
+    def vector_search_index_definition() -> dict:
+        """
+        Returns the Atlas Vector Search index definition for the *chunks* collection.
+
+        The 'vectorSearch' type (GA since MongoDB 7.0 / Atlas 2024-Q1) supports
+        pre-filtering on scalar fields declared as 'filter' entries.  This lets
+        $vectorSearch restrict the candidate pool to a specific contract_id
+        *before* the ANN sweep — much faster than a post-filter.
+
+        Embedding dimensions: 1024  (voyage-3)
+        Similarity metric:    cosine
+        """
+        return {
+            "name": "chunk_embedding_index",
+            "type": "vectorSearch",
+            "fields": [
+                {
+                    "type": "vector",
+                    "path": "embedding",
+                    "numDimensions": 1024,
+                    "similarity": "cosine",
+                },
+                # Pre-filter fields — enable contract-scoped and level-scoped ANN
+                {"type": "filter", "path": "contract_id"},
+                {"type": "filter", "path": "chunk_level"},
+                {"type": "filter", "path": "section_type_tags"},
+            ],
+        }
 
 
 # Convenience functions
