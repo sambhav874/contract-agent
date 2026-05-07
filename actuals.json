@@ -1,0 +1,23 @@
+[
+  {
+    "kpi_id": "kpi_001",
+    "value": 99.5,
+    "unit": "%",
+    "source": "monitoring_tool",
+    "timestamp": "2026-05-01T00:00:00Z"
+  },
+  {
+    "kpi_id": "kpi_002",
+    "value": 2.5,
+    "unit": "hour",
+    "source": "jira",
+    "timestamp": "2026-05-02T14:00:00Z"
+  },
+  {
+    "kpi_id": "kpi_003",
+    "value": 1.0,
+    "unit": "updates",
+    "source": "github",
+    "timestamp": "2026-05-15T00:00:00Z"
+  }
+]

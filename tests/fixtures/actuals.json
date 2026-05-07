@@ -1,0 +1,12 @@
+[
+  {
+    "kpi_id": "kpi_006_hot",
+    "value": 150,
+    "unit": "F"
+  },
+  {
+    "kpi_id": "kpi_013_target",
+    "value": 99,
+    "unit": "%"
+  }
+]

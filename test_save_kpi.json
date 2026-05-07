@@ -1,0 +1,191 @@
+{
+  "structured": {
+    "needs_more_context": false,
+    "additional_tags_needed": [
+      "KPI-13",
+      "KPI-14",
+      "KPI-15",
+      "Exhibit B",
+      "Exhibit B-4"
+    ],
+    "kpis": [
+      {
+        "kpi_id": "kpi_001",
+        "name": "KPI-1: On-Time Delivery Target",
+        "value": "98.5",
+        "unit": "%",
+        "kpi_type": "sla",
+        "party": "Concessionaire",
+        "trigger_condition": "Percentage of flights where meals delivered within Catering Window",
+        "section": "Section 4.02: KPI-1: On-Time Delivery Performance",
+        "structural_path": "Article IV > Section 4.02",
+        "clause_text": "Target: \u2265 98.5% on-time delivery",
+        "confidence": 1.0
+      },
+      {
+        "kpi_id": "kpi_002",
+        "name": "KPI-1: Tier 1 Penalty",
+        "value": "2,500",
+        "unit": "USD per percentage point",
+        "kpi_type": "penalty",
+        "party": "Concessionaire",
+        "trigger_condition": "On-time delivery performance between 95.0% and 96.9%",
+        "section": "Section 4.02: KPI-1: On-Time Delivery Performance",
+        "structural_path": "Article IV > Section 4.02",
+        "clause_text": "Tier 1 (95.0% - 96.9%): $2,500 per percentage point below 97%",
+        "confidence": 1.0
+      },
+      {
+        "kpi_id": "kpi_003",
+        "name": "KPI-2: Critical Delay Penalty",
+        "value": "5,000",
+        "unit": "USD per flight",
+        "kpi_type": "penalty",
+        "party": "Concessionaire",
+        "trigger_condition": "Meal arrives after aircraft departure",
+        "section": "Section 4.03: KPI-2: Meal Delivery Time Accuracy",
+        "structural_path": "Article IV > Section 4.03",
+        "clause_text": "Critical delay (meal arrives after aircraft departure): $5,000 + meal cost refund",
+        "confidence": 1.0
+      },
+      {
+        "kpi_id": "kpi_004",
+        "name": "KPI-3: Order Fulfillment Target",
+        "value": "99.5",
+        "unit": "%",
+        "kpi_type": "sla",
+        "party": "Concessionaire",
+        "trigger_condition": "Percentage of ordered meals successfully delivered",
+        "section": "Section 4.04: KPI-3: Order Fulfillment Rate",
+        "structural_path": "Article IV > Section 4.04",
+        "clause_text": "Target: \u2265 99.5% fulfillment",
+        "confidence": 1.0
+      },
+      {
+        "kpi_id": "kpi_005",
+        "name": "KPI-4: Meal Quality Score Target",
+        "value": "4.5",
+        "unit": "Score out of 5.0",
+        "kpi_type": "sla",
+        "party": "Concessionaire",
+        "trigger_condition": "Composite score from passenger feedback, airline feedback, and quality audits",
+        "section": "Section 4.05: KPI-4: Meal Quality Score",
+        "structural_path": "Article IV > Section 4.05",
+        "clause_text": "Target: \u2265 4.5/5.0 average score",
+        "confidence": 1.0
+      },
+      {
+        "kpi_id": "kpi_006",
+        "name": "KPI-5: Special Meal Availability Target",
+        "value": "99.0",
+        "unit": "%",
+        "kpi_type": "sla",
+        "party": "Concessionaire",
+        "trigger_condition": "Percentage of special meal requests fulfilled correctly",
+        "section": "Section 4.06: KPI-5: Special Meal Availability",
+        "structural_path": "Article IV > Section 4.06",
+        "clause_text": "Target: \u2265 99.0%",
+        "confidence": 1.0
+      },
+      {
+        "kpi_id": "kpi_007",
+        "name": "KPI-7: Fatal Outcome Penalty",
+        "value": "1,000,000",
+        "unit": "USD",
+        "kpi_type": "penalty",
+        "party": "Concessionaire",
+        "trigger_condition": "Confirmed foodborne illness resulting in fatal outcome",
+        "section": "Section 4.08: KPI-7: Food Safety Incident Rate",
+        "structural_path": "Article IV > Section 4.08",
+        "clause_text": "Fatal outcome: $1,000,000 + termination + legal action",
+        "confidence": 1.0
+      },
+      {
+        "kpi_id": "kpi_008",
+        "name": "KPI-9: Waste Rate Target",
+        "value": "3.5",
+        "unit": "%",
+        "kpi_type": "volume",
+        "party": "Concessionaire",
+        "trigger_condition": "Percentage of prepared meals not served",
+        "section": "Section 4.10: KPI-9: Waste Rate",
+        "structural_path": "Article IV > Section 4.10",
+        "clause_text": "Target: \u2264 3.5% waste rate",
+        "confidence": 1.0
+      },
+      {
+        "kpi_id": "kpi_009",
+        "name": "Late Payment Penalty",
+        "value": "1.5",
+        "unit": "% per month",
+        "kpi_type": "financial",
+        "party": "Airline",
+        "trigger_condition": "Failure to pay invoice within 30 days",
+        "section": "Section 3.03: Payment Terms",
+        "structural_path": "Article III > Section 3.03",
+        "clause_text": "Late payment penalty: 1.5% per month",
+        "confidence": 1.0
+      },
+      {
+        "kpi_id": "kpi_010",
+        "name": "Business Class Annual Escalation",
+        "value": "3.5",
+        "unit": "%",
+        "kpi_type": "financial",
+        "party": "Airline",
+        "trigger_condition": "Annual price adjustment for Business Class meals",
+        "section": "Section 3.01: Base Meal Rates",
+        "structural_path": "Article III > Section 3.01",
+        "clause_text": "Business Class: $28.50 - $42.00 | 3.5%",
+        "confidence": 1.0
+      }
+    ],
+    "financial_summary": "- Total Contract Value: Not explicitly stated in provided chunks.\n- Primary Fee Structure: Tiered base rates by class (Business: $28.50-$42.00, Economy: $12.75-$18.50, First: $55.00-$85.00).\n- Key Escalation: Annual adjustments on January 1 based on CPI-U, fuel, and wages; specific class escalations range from 2.0% to 4.0%.\n- Penalty Regime: Comprehensive 15-KPI framework with penalties ranging from $50 per meal to $1,000,000 for fatal food safety incidents.\n- Payment Terms: Monthly invoicing with Net 30 payment terms and a 1.5% monthly late payment penalty.",
+    "key_dates": [
+      {
+        "event_name": "Annual Price Adjustment",
+        "date_value": "January 1",
+        "description": "Prices adjusted annually based on CPI-U, fuel, and wage indices."
+      },
+      {
+        "event_name": "Invoice Due Date",
+        "date_value": "30 days",
+        "description": "Invoices submitted monthly are due within thirty days of submission."
+      },
+      {
+        "event_name": "Disputed Amount Payment",
+        "date_value": "15 days",
+        "description": "Disputed amounts are payable within fifteen days of resolution."
+      },
+      {
+        "event_name": "Meal Refund Processing",
+        "date_value": "48 hours",
+        "description": "Passengers entitled to meal refunds must have them processed within 48 hours."
+      },
+      {
+        "event_name": "Food Safety Reporting Deadline",
+        "date_value": "4 hours",
+        "description": "All food safety incidents must be reported to the health department within 4 hours."
+      },
+      {
+        "event_name": "Sample Retention Period",
+        "date_value": "72 hours",
+        "description": "Concessionaire must maintain product samples for 72 hours for traceability."
+      }
+    ],
+    "penalties": [
+      "Tiered penalties for on-time delivery failures below 97%.",
+      "Fixed penalties for early, late, or critical delivery delays.",
+      "Per-meal penalties for order fulfillment shortfalls, increasing with volume.",
+      "Monthly penalties for failing to meet meal quality score targets.",
+      "Significant penalties for food safety violations, up to $1M for fatal outcomes.",
+      "Penalties for failing to accommodate load factor changes with required notice.",
+      "Monthly penalties for exceeding waste rate or passenger complaint thresholds.",
+      "Per-incident penalties for crew meal non-compliance and documentation errors."
+    ]
+  },
+  "narrative": "### Contract Summary: Catering Services Agreement\n\n**Performance Standards and Penalties**\nThe Concessionaire is held to strict service level agreements (SLAs), including a 98.5% on-time delivery target and a 99.5% order fulfillment rate. Failure to meet these standards triggers a comprehensive penalty regime, ranging from tiered financial deductions for delivery delays to a $5,000 penalty per flight for critical delays where meals arrive after departure.\n\n**Food Safety and Quality**\nThe contract mandates a high standard for meal quality, requiring a minimum score of 4.5 out of 5.0. Food safety is treated with extreme severity; the Concessionaire faces a $1,000,000 penalty, immediate contract termination, and potential legal action in the event of a fatal foodborne illness.\n\n**Financial Terms and Escalations**\nThe Airline is required to pay invoices within 30 days, with a 1.5% monthly penalty applied to late payments. Base meal rates are subject to annual adjustments every January 1st, which are calculated based on fluctuations in CPI-U, fuel costs, and wage indices.\n\n**Operational Requirements**\nThe Concessionaire must adhere to strict operational timelines, including a 4-hour window for reporting food safety incidents and a 72-hour requirement for retaining food samples. Additionally, the agreement limits waste to a maximum of 3.5% of prepared meals to ensure operational efficiency.",
+  "statistics": {
+    "total_kpis": 10
+  }
+}

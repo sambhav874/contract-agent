@@ -1,6 +1,23 @@
-# Contract Intelligence Agent
+# Contract Guardian
 
-CLI-based AI agent for legal contract analysis using Gemini AI, Voyage AI embeddings, and MongoDB.
+CLI-based AI agent for legal contract analysis using Gemini AI, Voyage AI embeddings, and MongoDB. Now featuring a premium **Agentic Monitoring Dashboard**.
+
+## 🚀 Dashboard (Premium UI)
+
+The project now includes a high-fidelity monitoring dashboard for real-time KPI tracking and breach remediation.
+
+### 1. Start the Backend API
+```bash
+python cli.py serve --port 8080
+```
+
+### 2. Start the Frontend
+```bash
+cd frontend
+npm run dev
+```
+
+The dashboard will be available at `http://localhost:3000`.
 
 ## Prerequisites
 

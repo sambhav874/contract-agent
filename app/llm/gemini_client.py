@@ -140,3 +140,25 @@ async def call_gemini(
         response_schema=response_schema,
         temperature=temperature,
     )
+
+
+async def call_gemini_structured(
+    prompt: str,
+    output_schema: Any,
+    model: str = "gemini-2.0-flash",
+    temperature: float = 0.0,
+) -> Any:
+    """Call Gemini and parse response into a Pydantic model."""
+    # Use Pydantic's model_json_schema() to generate the schema for the model
+    schema = output_schema.model_json_schema()
+    
+    # We pass the schema directly to the SDK
+    result = await call_gemini(
+        model=model,
+        system_prompt="Return the response in strict JSON format matching the provided schema.",
+        user_message=prompt,
+        response_schema=schema,
+        temperature=temperature,
+    )
+    
+    return output_schema.model_validate(result)

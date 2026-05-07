@@ -74,6 +74,20 @@ class MongoDB:
         await jobs.create_index("status")
         await jobs.create_index("created_at")
 
+        # KPI collection indexes
+        kpis = cls.get_collection("kpis")
+        await kpis.create_index([("contract_id", 1), ("kpi_id", 1)], unique=True)
+
+        # Actuals collection indexes
+        actuals = cls.get_collection("actuals")
+        await actuals.create_index([("contract_id", 1), ("kpi_id", 1)])
+        await actuals.create_index("timestamp")
+
+        # Breaches collection indexes
+        breaches = cls.get_collection("breaches")
+        await breaches.create_index("contract_id")
+        await breaches.create_index("timestamp")
+
     @classmethod
     async def insert_contract(cls, metadata: ContractMetadata) -> str:
         """Insert a contract metadata document."""
@@ -99,10 +113,16 @@ class MongoDB:
         contracts = cls.get_collection("contracts")
         chunks = cls.get_collection("chunks")
         jobs = cls.get_collection("analysis_jobs")
+        kpis = cls.get_collection("kpis")
+        actuals = cls.get_collection("actuals")
+        breaches = cls.get_collection("breaches")
 
         await contracts.delete_one({"contract_id": contract_id})
         await chunks.delete_many({"contract_id": contract_id})
         await jobs.delete_many({"contract_id": contract_id})
+        await kpis.delete_many({"contract_id": contract_id})
+        await actuals.delete_many({"contract_id": contract_id})
+        await breaches.delete_many({"contract_id": contract_id})
 
     @classmethod
     async def insert_chunks(cls, chunks: list[ChunkDocument]) -> list[str]:
@@ -140,6 +160,68 @@ class MongoDB:
         result = await collection.insert_one(job_data)
         return job_data.get("job_id", str(result.inserted_id))
 
+    # ── KPI Operations ────────────────────────────────────────────────
+    
+    @classmethod
+    async def upsert_kpis(cls, contract_id: str, kpis: list[dict[str, Any]]) -> int:
+        """Insert or update KPIs for a contract."""
+        collection = cls.get_collection("kpis")
+        count = 0
+        for kpi in kpis:
+            kpi["contract_id"] = contract_id
+            await collection.update_one(
+                {"contract_id": contract_id, "kpi_id": kpi["kpi_id"]},
+                {"$set": kpi},
+                upsert=True
+            )
+            count += 1
+        return count
+
+    @classmethod
+    async def get_kpis(cls, contract_id: str) -> list[dict[str, Any]]:
+        """Get all KPIs for a contract."""
+        collection = cls.get_collection("kpis")
+        return await collection.find({"contract_id": contract_id}).to_list(None)
+
+    # ── Operational Actuals ───────────────────────────────────────────
+
+    @classmethod
+    async def insert_actual(cls, actual: dict[str, Any]) -> str:
+        """Insert an operational actual (performance data)."""
+        collection = cls.get_collection("actuals")
+        result = await collection.insert_one(actual)
+        return str(result.inserted_id)
+
+    @classmethod
+    async def get_latest_actuals(cls, contract_id: str) -> list[dict[str, Any]]:
+        """Get the latest actual value for each KPI in a contract."""
+        collection = cls.get_collection("actuals")
+        # Aggregation to find latest by kpi_id
+        pipeline = [
+            {"$match": {"contract_id": contract_id}},
+            {"$sort": {"timestamp": -1}},
+            {"$group": {
+                "_id": "$kpi_id",
+                "latest": {"$first": "$$ROOT"}
+            }},
+            {"$replaceRoot": {"newRoot": "$latest"}}
+        ]
+        return await collection.aggregate(pipeline).to_list(None)
+
+    # ── Breach Results ───────────────────────────────────────────────
+
+    @classmethod
+    async def insert_breach(cls, breach: dict[str, Any]) -> str:
+        """Insert a breach result."""
+        collection = cls.get_collection("breaches")
+        result = await collection.insert_one(breach)
+        return str(result.inserted_id)
+
+    @classmethod
+    async def get_breaches(cls, contract_id: str) -> list[dict[str, Any]]:
+        """Get all breach results for a contract."""
+        collection = cls.get_collection("breaches")
+        return await collection.find({"contract_id": contract_id}).sort("timestamp", -1).to_list(None)
 
     @staticmethod
     def vector_search_index_definition() -> dict:

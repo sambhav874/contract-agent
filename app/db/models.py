@@ -143,6 +143,8 @@ class KPIItem(BaseModel):
     section: str = Field(description="The section title where this KPI was found")
     structural_path: str = Field(description="The full hierarchical path (e.g., 'Article IV > Section 4.1')")
     clause_text: str = Field(description="Verbatim text from the contract containing the KPI (max 60 words)")
+    remediation: str | None = Field(None, description="Required corrective action if breached")
+    remediation_sla: str | None = Field(None, description="Timeline for completing remediation (e.g., '24 hours', '7 days')")
     confidence: float = Field(ge=0.0, le=1.0, description="Confidence score from 0.0 to 1.0. Use 0.8-0.9 for likely but partially detailed items.")
 
 
@@ -238,17 +240,6 @@ class RedFlagOutput(BaseAnalysisOutput):
     severity_summary: dict[str, int] = Field(default_factory=dict)
 # ── Operational Event Processing ──────────────────────────────────────
 
-class EventMapping(BaseModel):
-    kpi_id: str = Field(description="The ID of the KPI this event is relevant to (e.g., KPI-1)")
-    relevance_score: float = Field(ge=0.0, le=1.0, description="How relevant the event is to the KPI")
-    actual_value: float = Field(description="The numeric value extracted from the event")
-    unit: str = Field(description="The unit of the actual value")
-    reasoning: str = Field(description="Explanation of why this event maps to the KPI and how the value was extracted")
-
-class EventAnalysisOutput(BaseAnalysisOutput):
-    mappings: list[EventMapping] = Field(description="List of KPIs this event influences")
-    is_actionable: bool = Field(description="Whether this event provides enough data to check a KPI")
-
 # ── Operational Actuals (Performance Data) ───────────────────────────
 
 class OperationalActual(BaseModel):
@@ -271,4 +262,7 @@ class BreachResult(BaseModel):
     is_breach: bool
     penalty_triggered: str | None = None
     penalty_amount: float = 0.0
+    remediation: str | None = None
+    remediation_sla: str | None = None
     timestamp: str = Field(default_factory=lambda: datetime.now().isoformat())
+

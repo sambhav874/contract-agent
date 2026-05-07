@@ -38,6 +38,9 @@ To enable data-driven tracking, you MUST decompose qualitative strings into quan
    - `between` (for ranges like "95.0% - 96.9%" or "between X and Y")
 4. **`consequence_value`**: If the KPI has a penalty or bonus amount, extract the number.
 5. **`consequence_unit`**: The unit for the consequence (e.g., `USD`, `%`).
+6. **`remediation`**: Extract any specific corrective actions required if the KPI is breached (e.g., "Submit root cause analysis", "Refund 100% of fee").
+7. **`remediation_sla`**: The specific timeline or deadline to complete the remediation (e.g., "within 48 hours", "by next billing cycle").
+
 
 ---
 
@@ -146,6 +149,8 @@ For every penalty table, extract:
     "section": "KPI-2: Meal Delivery Time Accuracy",
     "structural_path": "Article IV > Section 4.03",
     "clause_text": "Critical delay (meal arrives after aircraft departure): $5,000 + meal cost refund",
+    "remediation": "Refund meal cost and provide root cause analysis within 24h",
+    "remediation_sla": "24 hours",
     "confidence": 1.0
   },
   {
@@ -163,6 +168,8 @@ For every penalty table, extract:
     "section": "Section 4.01: Performance Standards",
     "structural_path": "Article IV > Section 4.01",
     "clause_text": "The Concessionaire shall maintain an On-Time Performance rate of at least 99.5%",
+    "remediation": "Submit Performance Improvement Plan (PIP) if target missed for 2 consecutive months",
+    "remediation_sla": "7 days",
     "confidence": 1.0
   }
 ]

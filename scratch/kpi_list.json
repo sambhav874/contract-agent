@@ -1,0 +1,194 @@
+[
+  {
+    "id": "kpi_001",
+    "name": "KPI-1: On-Time Delivery Target",
+    "remediation": null,
+    "sla": null
+  },
+  {
+    "id": "kpi_002",
+    "name": "KPI-1: Bonus Eligibility",
+    "remediation": null,
+    "sla": null
+  },
+  {
+    "id": "kpi_003",
+    "name": "KPI-1: Penalty Tier 1",
+    "remediation": null,
+    "sla": null
+  },
+  {
+    "id": "kpi_004",
+    "name": "KPI-1: Penalty Tier 2",
+    "remediation": "Corrective Action Plan",
+    "sla": null
+  },
+  {
+    "id": "kpi_005",
+    "name": "KPI-2: Early Delivery Penalty",
+    "remediation": null,
+    "sla": null
+  },
+  {
+    "id": "kpi_006",
+    "name": "KPI-2: Late Delivery Penalty",
+    "remediation": null,
+    "sla": null
+  },
+  {
+    "id": "kpi_007",
+    "name": "KPI-2: Critical Delay Penalty",
+    "remediation": "Meal cost refund",
+    "sla": null
+  },
+  {
+    "id": "kpi_008",
+    "name": "KPI-3: Order Fulfillment Target",
+    "remediation": null,
+    "sla": null
+  },
+  {
+    "id": "kpi_009",
+    "name": "KPI-3: Shortfall Penalty (1-5 meals)",
+    "remediation": "Refund",
+    "sla": "48 hours"
+  },
+  {
+    "id": "kpi_010",
+    "name": "KPI-3: Critical Flight Shortfall",
+    "remediation": "Immediate review",
+    "sla": null
+  },
+  {
+    "id": "kpi_011",
+    "name": "KPI-4: Meal Quality Target",
+    "remediation": null,
+    "sla": null
+  },
+  {
+    "id": "kpi_012",
+    "name": "KPI-4: Quality Penalty (3.0 - 3.49)",
+    "remediation": "Corrective Action Plan",
+    "sla": null
+  },
+  {
+    "id": "kpi_013",
+    "name": "KPI-5: Special Meal Target",
+    "remediation": null,
+    "sla": null
+  },
+  {
+    "id": "kpi_014",
+    "name": "KPI-5: Allergen Error (Medical)",
+    "remediation": "Immediate suspension",
+    "sla": null
+  },
+  {
+    "id": "kpi_015",
+    "name": "KPI-6: Hot Meal Temperature",
+    "remediation": null,
+    "sla": null
+  },
+  {
+    "id": "kpi_016",
+    "name": "KPI-6: Cold Meal Temperature",
+    "remediation": null,
+    "sla": null
+  },
+  {
+    "id": "kpi_017",
+    "name": "KPI-6: Pattern of Violations",
+    "remediation": "Audit",
+    "sla": null
+  },
+  {
+    "id": "kpi_018",
+    "name": "KPI-7: Food Safety Incident Target",
+    "remediation": null,
+    "sla": null
+  },
+  {
+    "id": "kpi_019",
+    "name": "KPI-7: Fatal Outcome Penalty",
+    "remediation": "Termination and legal action",
+    "sla": null
+  },
+  {
+    "id": "kpi_020",
+    "name": "KPI-8: Load Factor Flexibility (>=4h)",
+    "remediation": null,
+    "sla": null
+  },
+  {
+    "id": "kpi_021",
+    "name": "KPI-9: Waste Rate Target",
+    "remediation": null,
+    "sla": null
+  },
+  {
+    "id": "kpi_022",
+    "name": "KPI-9: Waste Rate Bonus",
+    "remediation": null,
+    "sla": null
+  },
+  {
+    "id": "kpi_023",
+    "name": "KPI-10: Passenger Complaint Target",
+    "remediation": null,
+    "sla": null
+  },
+  {
+    "id": "kpi_024",
+    "name": "KPI-11: Crew Meal Availability",
+    "remediation": null,
+    "sla": null
+  },
+  {
+    "id": "kpi_025",
+    "name": "KPI-13: Equipment Uptime Target",
+    "remediation": null,
+    "sla": null
+  },
+  {
+    "id": "kpi_026",
+    "name": "KPI-14: Emergency Response Time",
+    "remediation": null,
+    "sla": null
+  },
+  {
+    "id": "kpi_027",
+    "name": "KPI-15: Sustainable Packaging Target",
+    "remediation": null,
+    "sla": null
+  },
+  {
+    "id": "kpi_028",
+    "name": "Business Class Base Rate",
+    "remediation": null,
+    "sla": null
+  },
+  {
+    "id": "kpi_029",
+    "name": "Late Payment Penalty",
+    "remediation": null,
+    "sla": null
+  },
+  {
+    "id": "kpi_030",
+    "name": "Volume Discount (500k-1M)",
+    "remediation": null,
+    "sla": null
+  },
+  {
+    "id": "kpi_031",
+    "name": "PIP Trigger: Quarterly Penalties",
+    "remediation": "Root cause analysis and Corrective actions",
+    "sla": "7 days"
+  },
+  {
+    "id": "kpi_032",
+    "name": "Termination Trigger: Annual Penalties",
+    "remediation": "Termination",
+    "sla": null
+  }
+]

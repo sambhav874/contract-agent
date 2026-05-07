@@ -54,7 +54,8 @@ _INTENT_SCHEMA: dict[str, str] = {
     "redflags":    "RedFlagOutput",
 }
 
-_MAP_PASS_INTENTS = {"redflags", "clause", "summary"}
+_MAP_PASS_INTENTS = {"redflags", "clause", "summary", "kpi"}
+
 
 _ROUNDS: dict[str, int] = {
     "risk":        3,
@@ -136,16 +137,35 @@ async def _route_with_gemini(
     if intent == "kpi" and max_rounds < 3:
         max_rounds = 3
 
+    # Normalize chunk levels to match our schema (macro, meso, micro)
+    raw_levels = response.get("chunk_levels", _INTENT_LEVELS.get(intent, ["meso"]))
+    valid_levels = {"macro", "meso", "micro"}
+    normalized_levels = []
+    for lvl in raw_levels:
+        lvl_lower = lvl.lower()
+        if lvl_lower in valid_levels:
+            normalized_levels.append(lvl_lower)
+        elif "section" in lvl_lower or "article" in lvl_lower:
+            normalized_levels.append("macro")
+        elif "clause" in lvl_lower or "provision" in lvl_lower:
+            normalized_levels.append("meso")
+        elif "sentence" in lvl_lower or "paragraph" in lvl_lower or "item" in lvl_lower:
+            normalized_levels.append("micro")
+    
+    if not normalized_levels:
+        normalized_levels = _INTENT_LEVELS.get(intent, ["meso"])
+
     return QueryPlan(
         intent=response.get("intent", intent),
         sub_intents=response.get("sub_intents", []),
         priority_section_tags=response.get("priority_section_tags", []),
-        chunk_levels=response.get("chunk_levels", _INTENT_LEVELS.get(intent, ["meso"])),
+        chunk_levels=normalized_levels,
         map_pass_required=response.get("map_pass_required", intent in _MAP_PASS_INTENTS),
         max_retrieval_rounds=max_rounds,
         output_schema_name=response.get("output_schema_name", _INTENT_SCHEMA.get(intent, "")),
         analysis_mode=response.get("analysis_mode", "plain"),
     )
+
 
 
 # ── Hardcoded fallback ────────────────────────────────────────────────

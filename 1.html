@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contract Performance Monitoring</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F5F4F2;
+        }
+
+        .flag-expanded {
+            display: none;
+        }
+
+        .flag-expanded.open {
+            display: block;
+            animation: slideDown 0.2s ease-out forwards;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-5px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        #loader {
+            display: flex;
+        }
+
+        #main-content {
+            display: none;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen text-slate-800">
+
+    <div id="loader" class="fixed inset-0 bg-[#F5F4F2] z-50 flex items-center justify-center">
+        <div class="flex flex-col items-center gap-5 text-center">
+            <div class="relative w-16 h-16">
+                <div class="absolute inset-0 rounded-full border-4 border-gray-200 border-t-[#0084C7] animate-spin">
+                </div>
+                <i data-lucide="sparkles" class="absolute inset-0 m-auto h-6 w-6 text-[#0084C7]"></i>
+            </div>
+            <div>
+                <h2 class="text-lg font-semibold text-gray-800">Compliance Monitoring Engine</h2>
+                <p class="text-sm text-gray-400 mt-1">Evaluating SLA, pricing and volume rules...</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="main-content" class="pt-16 pb-12">
+        <div class="border-b border-gray-200 bg-white fixed top-0 w-full z-40">
+            <div class="max-w-screen-xl mx-auto px-6 py-3 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <button
+                        class="flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100 px-3 py-1.5 rounded-md transition-colors -ml-2">
+                        <i data-lucide="arrow-left" class="h-4 w-4"></i> Back to Contract
+                    </button>
+                    <div class="h-4 w-px bg-gray-200"></div>
+                    <div>
+                        <h1 class="text-sm font-bold text-gray-800">Contract Performance Monitoring</h1>
+                        <p class="text-xs text-gray-400 mt-0.5">CS-2026-CATERING-0047 · Compliance Monitoring Engine ·
+                            July 2026</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span
+                        class="flex items-center gap-1.5 text-xs font-medium text-[#0084C7] bg-blue-50 border border-blue-100 px-3 py-1.5 rounded-full">
+                        <i data-lucide="sparkles" class="h-3 w-3"></i> AI-Powered Analysis
+                    </span>
+                    <button
+                        class="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-800 bg-white border border-gray-200 px-3 py-1.5 rounded-md transition-colors shadow-sm">
+                        <i data-lucide="refresh-cw" class="h-3.5 w-3.5"></i> Re-evaluate
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="max-w-screen-xl mx-auto px-6 mt-6 space-y-5">
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-3" id="kpi-cards"></div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div class="md:col-span-2 bg-white rounded-xl border border-gray-200">
+                    <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-800">Volume by Hub — July 2026</h3>
+                            <p class="text-xs text-gray-400 mt-0.5">Economy & Business class meal volumes per hub
+                                airport</p>
+                        </div>
+                        <span
+                            class="flex items-center gap-1.5 text-[11px] text-gray-400 bg-gray-50 border border-gray-100 px-2.5 py-1 rounded-full">
+                            <i data-lucide="server" class="h-3 w-3"></i> SAP S/4HANA + Oracle ERP
+                        </span>
+                    </div>
+                    <div class="px-4 py-4 h-[240px] relative w-full">
+                        <canvas id="volumeChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl border border-gray-200">
+                    <div class="px-5 py-4 border-b border-gray-100">
+                        <h3 class="text-sm font-semibold text-gray-800">Flag Distribution</h3>
+                        <p class="text-xs text-gray-400 mt-0.5">Across all CME rule categories</p>
+                    </div>
+                    <div class="px-4 py-4 h-[240px] flex flex-col items-center justify-center relative w-full">
+                        <div class="w-full h-32 relative flex justify-center">
+                            <canvas id="pieChart"></canvas>
+                        </div>
+                        <div class="grid grid-cols-2 gap-x-6 gap-y-1 mt-6 w-[80%]" id="pie-legend"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div class="bg-white rounded-xl border border-gray-200">
+                    <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-800">SLA Performance Trend</h3>
+                            <p class="text-xs text-gray-400 mt-0.5">On-time delivery & temperature compliance (%) · 6
+                                months</p>
+                        </div>
+                        <span
+                            class="flex items-center gap-1.5 text-[11px] text-gray-400 bg-gray-50 border border-gray-100 px-2.5 py-1 rounded-full">
+                            <i data-lucide="activity" class="h-3 w-3"></i> ServiceNow + IoT Hub
+                        </span>
+                    </div>
+                    <div class="px-4 py-4 h-[220px] relative w-full">
+                        <canvas id="slaChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl border border-gray-200">
+                    <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-800">Financial Reconciliation</h3>
+                            <p class="text-xs text-gray-400 mt-0.5">Expected vs. actual invoice totals (USD) ·
+                                April–July</p>
+                        </div>
+                        <span
+                            class="flex items-center gap-1.5 text-[11px] text-gray-400 bg-gray-50 border border-gray-100 px-2.5 py-1 rounded-full">
+                            <i data-lucide="mail" class="h-3 w-3"></i> Oracle ERP + Email Agent
+                        </span>
+                    </div>
+                    <div class="px-4 py-4 h-[220px] relative w-full">
+                        <canvas id="finChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div class="px-5 py-4 border-b border-gray-100">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-800">Compliance Flags</h3>
+                            <p class="text-xs text-gray-400 mt-0.5">CME evaluation results · sorted Critical → OK ·
+                                click any row to expand</p>
+                        </div>
+                        <div class="flex flex-wrap gap-2 justify-end" id="filter-tabs"></div>
+                    </div>
+                    <div
+                        class="grid grid-cols-[20px_1fr_100px_100px_20px] gap-4 items-center px-5 py-2.5 bg-gray-50 border-t border-gray-100 -mx-5 mt-4">
+                        <div></div>
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-gray-500">Flag / Category</p>
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-gray-500 text-right">Impact</p>
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-gray-500 pl-4 w-24">Severity</p>
+                        <div class="w-4"></div>
+                    </div>
+                </div>
+                <div id="flags-container" class="divide-y divide-gray-100 bg-white"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const FLAGS = [
+            { flag_id: 'FLG-SLA-001', severity: 'CRITICAL', rule: 'sla_monitoring', title: 'Temperature Compliance – Level 2 Escalation', message: '3 cold-chain violations in 14 days. Contract review meeting required within 5 business days. $2,000 penalty per incident applies.', expected: '0 violations / period', actual: '3 violations in 30 days', financial_impact: -6000, clause_ref: 'SLA-TEMP-001 – Cold Chain Integrity, Penalty Level 2', action: 'Initiate formal contract review with PFC Account Director. Issue $2,000 penalty notices (×3). Demand IoT sensor recalibration certificates within 48 hrs.', owner: 'Contract Manager + Legal', deadline: '< 1 hour', data_source: { system: 'Azure IoT Hub – Temperature Sensors', type: 'Cold-chain logs + delivery certificates', updated: '14 Jul 2026, 14:22' } },
+            { flag_id: 'FLG-FIN-001', severity: 'HIGH', rule: 'financial_reconciliation', title: 'Invoice Overcharge – $69,980 Detected', message: 'July invoice total $3,195,000 vs. contracted blended-rate cost $3,125,020. Overcharge of $69,980 (2.2% above contract).', expected: '$3,125,020 (blended)', actual: '$3,195,000 (invoiced)', financial_impact: -69980, clause_ref: 'Section 6.1 – Financial Reconciliation', action: 'Issue formal dispute notice citing blended-rate calculation. Request credit note for $69,980. Block invoice from payment queue pending resolution.', owner: 'Finance + Procurement', deadline: 'Same business day', data_source: { system: 'Oracle ERP (PRJ-SKG-CATER-26) + Email Agent', type: 'Invoice INV-PFC-2026-07-1234 · 12 line items, 6 hubs', updated: '15 Jul 2026, 09:30' } },
+            { flag_id: 'FLG-PRC-001', severity: 'HIGH', rule: 'pricing_validation', title: 'Tier Rate Mismatch – LHR Economy', message: 'LHR economy volume (62,400 units) billed at Tier 2 ($16.75). Cross-hub aggregate of 134,000 places this in Tier 3. Expected blended rate: $16.27.', expected: '$16.27 blended', actual: '$16.75 invoiced', financial_impact: -29952, clause_ref: 'Section 6.1 – Tiered Pricing Calculation Engine', action: 'Recalculate July invoice using cross-hub volume aggregation. Raise discrepancy notice. Verify PFC applies hub-combined volumes, not per-hub tiers.', owner: 'Procurement', deadline: 'Same business day', data_source: { system: 'SAP S/4HANA (AGR-4401290) + Oracle ERP', type: 'Invoice line items – LHR hub economy meals', updated: '15 Jul 2026, 09:31' } },
+            { flag_id: 'FLG-SLA-002', severity: 'HIGH', rule: 'sla_monitoring', title: 'On-Time Delivery – Escalation Threshold Breached', message: '7 late deliveries this month (>2 hrs pre-departure). Exceeds the 5-incident escalation threshold. Penalty doubles to $1,000 per incident.', expected: '≤ 5 incidents / month', actual: '7 incidents', financial_impact: -7000, clause_ref: 'SLA – On-Time Delivery, Escalation >5 incidents/month', action: 'Apply doubled penalty rate ($1,000 × 7 = $7,000). Issue written warning. Request root-cause analysis from PFC within 3 business days.', owner: 'Contract Manager', deadline: 'Same business day', data_source: { system: 'ServiceNow (SVC0087341)', type: 'SLA Incidents + Flight Ops Manifests (CATPFC-12)', updated: '15 Jul 2026, 06:00' } },
+            { flag_id: 'FLG-SLA-004', severity: 'MEDIUM', rule: 'sla_monitoring', title: 'Menu Rotation – Only 3 of 4 Required Cycles', message: 'Only 3 unique menu cycles delivered vs. the required minimum of 4. $5,000 penalty applicable per contract.', expected: 'Min 4 cycles / month', actual: '3 cycles', financial_impact: -5000, clause_ref: 'SLA – Menu Rotation, $5,000 per missed rotation', action: 'Confirm breach with galley manifest records. Issue $5,000 penalty notice. Require August menu rotation schedule pre-approved by 25 Jul.', owner: 'Operations', deadline: 'Within 48 hours', data_source: { system: 'Flight Ops (CATPFC-12)', type: 'Galley Loading Manifests – Menu Schedule Logs', updated: '31 Jul 2026, 18:10' } },
+            { flag_id: 'FLG-TRM-001', severity: 'MEDIUM', rule: 'term_compliance', title: 'Invoice 15 Days Past Submission Deadline', message: 'Invoice received 45 days after service period end. Contractual deadline is 30 days.', expected: '≤ 30 days after period', actual: '45 days elapsed', clause_ref: 'Temporal Validation – Invoice Submission Timeline', action: 'Log breach with email timestamp evidence. Issue formal notice. Evaluate whether late submission triggers payment term or clawback provisions.', owner: 'Finance + Legal', deadline: 'Within 48 hours', data_source: { system: 'Mailbox AI Agent (accounts-payable@skyglobal.com)', type: 'Email receipt timestamp vs. service period end date', updated: '15 Jul 2026, 09:30' } },
+            { flag_id: 'FLG-VOL-001', severity: 'LOW', rule: 'volume_tracking', title: 'XDEP-BEV-001 – Beverage Discount Triggered', message: 'Total meals 215,400 crossed the 150,000 threshold. Beverage unit price drops $3.20 → $2.60. Verify PFC next invoice reflects this.', expected: '> 150,000 (trigger)', actual: '215,400 meals', clause_ref: 'Section 3.4 – Cross-Dependency: Beverage Bundle Discount', action: 'Verify beverage invoice reflects $2.60/unit rate. Update accumulator records. No escalation required — monitor next invoice.', owner: 'Procurement', deadline: 'Next review cycle', data_source: { system: 'MongoDB – volume_accumulators (real-time)', type: 'Running meal tally – all classes, period: 2026-07', updated: '15 Jul 2026, 09:31' } },
+            { flag_id: 'FLG-VOL-002', severity: 'LOW', rule: 'volume_tracking', title: 'XDEP-EQUIP-001 – Full Equipment Waiver Active', message: 'Economy volume 187,600 exceeds 100,000 hub-combined threshold. Full $12,000/hub/month equipment rental waiver confirmed.', expected: '> 100,000 (full waiver)', actual: '187,600 units', clause_ref: 'Section 3.4 – Equipment Rental Waiver', action: 'Confirm $12,000/hub waiver reflected on PFC invoice for all 12 hubs. Report saving to Finance. No escalation required.', owner: 'Finance', deadline: 'Next review cycle', data_source: { system: 'MongoDB – volume_accumulators (real-time)', type: 'Hub-combined economy meal volume – all 12 hubs', updated: '15 Jul 2026, 09:31' } },
+            { flag_id: 'FLG-PRC-002', severity: 'LOW', rule: 'pricing_validation', title: 'Business Class Pricing – Correct', message: '24,800 units correctly invoiced at Tier 2 rate ($38.50). No discrepancy detected across all hubs.', expected: '$38.50 / meal', actual: '$38.50 / meal', clause_ref: 'Section 3.3 – Business Class Meals, Tier 2', action: 'No action required. Record as verified-clean for the audit trail.', owner: 'Procurement', deadline: 'Next review cycle', data_source: { system: 'Oracle ERP (PRJ-SKG-CATER-26)', type: 'Invoice Line Items – Business class meals', updated: '15 Jul 2026, 09:31' } },
+            { flag_id: 'FLG-SLA-003', severity: 'LOW', rule: 'sla_monitoring', title: 'Quality Score 4.4 / 5.0 – On Target', message: 'Monthly quality score above the 4.2 contractual minimum. No penalty applicable.', expected: '> 4.2 / 5.0', actual: '4.4 / 5.0', clause_ref: 'SLA – Quality Score', action: 'No action required. Record as clean for monthly audit report.', owner: 'Operations', deadline: 'Next review cycle', data_source: { system: 'ServiceNow (SVC0087341)', type: 'Monthly Quality Audit Report', updated: '31 Jul 2026, 23:59' } },
+            { flag_id: 'FLG-TRM-002', severity: 'LOW', rule: 'term_compliance', title: 'Special Meals Surcharge – Within Cap', message: 'Special dietary meals at 6.2% of volume. Below 8% threshold — 15% surcharge cap applied correctly.', expected: '< 8% of total volume', actual: '6.2%', clause_ref: 'Section 3.4 – Special Meals Surcharge Cap', action: 'No action required. Flag for monitoring if proportion trends above 7.5%.', owner: 'Procurement', deadline: 'Next review cycle', data_source: { system: 'SAP S/4HANA (AGR-4401290)', type: 'Procurement master – meal category breakdown', updated: '31 Jul 2026, 22:00' } }
+        ];
+
+        const SEV = {
+            CRITICAL: { color: 'text-red-700', bg: 'bg-red-50', border: 'border-red-200', badge: 'bg-red-100 text-red-700 border border-red-200', dot: 'bg-red-500', icon: 'alert-circle', response: '< 1 hour' },
+            HIGH: { color: 'text-orange-700', bg: 'bg-orange-50', border: 'border-orange-200', badge: 'bg-orange-100 text-orange-700 border border-orange-200', dot: 'bg-orange-400', icon: 'alert-triangle', response: 'Same business day' },
+            MEDIUM: { color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200', badge: 'bg-amber-100 text-amber-700 border border-amber-200', dot: 'bg-amber-300', icon: 'alert-triangle', response: 'Within 48 hours' },
+            LOW: { color: 'text-green-700', bg: 'bg-green-50', border: 'border-green-200', badge: 'bg-green-100 text-green-700 border border-green-200', dot: 'bg-green-400', icon: 'check-circle-2', label: 'OK', response: 'Next review cycle' },
+        };
+
+        const RULE_LABELS = {
+            pricing_validation: 'Pricing Validation',
+            sla_monitoring: 'SLA Monitoring',
+            volume_tracking: 'Volume Tracking',
+            financial_reconciliation: 'Financial Reconciliation',
+            term_compliance: 'Term Compliance'
+        };
+
+        let activeRule = 'all';
+
+        function getSrcIcon(sys) {
+            sys = sys.toLowerCase();
+            if (sys.includes('iot')) return 'activity';
+            if (sys.includes('email') || sys.includes('mailbox')) return 'mail';
+            if (sys.includes('mongodb')) return 'database';
+            return 'server';
+        }
+
+        function initApp() {
+            setTimeout(() => {
+                document.getElementById('loader').style.display = 'none';
+                document.getElementById('main-content').style.display = 'block';
+                lucide.createIcons();
+                renderKPIs();
+                renderTabs();
+                renderFlags();
+                initCharts();
+            }, 1300);
+        }
+
+        function renderKPIs() {
+            const critical = FLAGS.filter(f => f.severity === 'CRITICAL').length;
+            const high = FLAGS.filter(f => f.severity === 'HIGH').length;
+            const medium = FLAGS.filter(f => f.severity === 'MEDIUM').length;
+            const ok = FLAGS.filter(f => f.severity === 'LOW').length;
+            const totalExp = Math.abs(FLAGS.reduce((s, f) => s + (f.financial_impact || 0), 0));
+
+            const kpiData = [
+                { label: 'Critical Flags', count: critical, c: 'text-red-700', b: 'bg-red-50 border-red-200', ic: 'alert-circle' },
+                { label: 'High Severity', count: high, c: 'text-orange-700', b: 'bg-orange-50 border-orange-200', ic: 'alert-triangle' },
+                { label: 'Medium', count: medium, c: 'text-amber-700', b: 'bg-amber-50 border-amber-200', ic: 'alert-triangle' },
+                { label: 'Clean / OK', count: ok, c: 'text-green-700', b: 'bg-green-50 border-green-200', ic: 'check-circle-2' },
+                { label: 'Financial Exposure', count: `$${totalExp.toLocaleString()}`, c: 'text-red-700', b: 'bg-white border-gray-200', ic: 'dollar-sign' },
+            ];
+
+            const container = document.getElementById('kpi-cards');
+            container.innerHTML = kpiData.map(k => `
+                <div class="${k.b} border rounded-xl shadow-none p-4 flex items-center gap-3">
+                    <div class="p-2 rounded-lg ${k.b}"><i data-lucide="${k.ic}" class="h-4 w-4 ${k.c}"></i></div>
+                    <div>
+                        <p class="text-xl font-bold leading-none ${k.c}">${k.count}</p>
+                        <p class="text-[11px] font-medium ${k.c} mt-0.5">${k.label}</p>
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function renderTabs() {
+            const rules = ['all', 'pricing_validation', 'sla_monitoring', 'volume_tracking', 'financial_reconciliation', 'term_compliance'];
+            const container = document.getElementById('filter-tabs');
+            container.innerHTML = rules.map(rule => {
+                const label = rule === 'all' ? 'All' : RULE_LABELS[rule];
+                const cnt = rule === 'all' ? FLAGS.length : FLAGS.filter(f => f.rule === rule).length;
+                const activeClasses = activeRule === rule ? 'bg-[#0084C7] text-white border-[#0084C7]' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300';
+                return `<button onclick="setTab('${rule}')" class="px-3 py-1 rounded-lg border text-xs font-medium transition-all duration-150 ${activeClasses}">${label} (${cnt})</button>`;
+            }).join('');
+        }
+
+        window.setTab = function (rule) {
+            activeRule = rule;
+            renderTabs();
+            renderFlags();
+            lucide.createIcons();
+        }
+
+        function toggleFlagRow(idx) {
+            const expanded = document.getElementById(`flag-expanded-${idx}`);
+            const chevron = document.getElementById(`flag-chev-${idx}`);
+            if (expanded.classList.contains('open')) {
+                expanded.classList.remove('open');
+                chevron.style.transform = 'rotate(0deg)';
+            } else {
+                expanded.classList.add('open');
+                chevron.style.transform = 'rotate(180deg)';
+            }
+        }
+
+        function renderFlags() {
+            const container = document.getElementById('flags-container');
+            const filtered = activeRule === 'all' ? FLAGS : FLAGS.filter(f => f.rule === activeRule);
+
+            container.innerHTML = filtered.map((flag, idx) => {
+                const s = SEV[flag.severity];
+                const lbl = s.label || flag.severity.charAt(0) + flag.severity.slice(1).toLowerCase();
+                const fm = flag.financial_impact ? `-$${Math.abs(flag.financial_impact).toLocaleString()}` : '';
+                return `
+                <div class="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors duration-150">
+                    <div class="grid grid-cols-[20px_1fr_100px_100px_20px] gap-4 items-center px-5 py-3.5 cursor-pointer" onclick="toggleFlagRow('${flag.flag_id}')">
+                        <div class="w-2.5 h-2.5 rounded-full shrink-0 ${s.dot}"></div>
+                        <div class="min-w-0 pr-4">
+                            <p class="text-sm font-semibold text-gray-800 truncate">${flag.title}</p>
+                            <p class="text-[11px] text-gray-400 mt-0.5">${flag.flag_id} · ${RULE_LABELS[flag.rule]}</p>
+                        </div>
+                        <span class="text-sm font-bold text-red-600 text-right pr-4">${fm}</span>
+                        <div class="flex items-center">
+                            <span class="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold ${s.badge}">
+                                <i data-lucide="${s.icon}" class="h-3 w-3 ${s.color}"></i> ${lbl}
+                            </span>
+                        </div>
+                        <i data-lucide="chevron-down" id="flag-chev-${flag.flag_id}" class="h-4 w-4 text-gray-300 transition-transform duration-200 overflow-hidden"></i>
+                    </div>
+                    
+                    <div id="flag-expanded-${flag.flag_id}" class="flag-expanded px-10 pb-5 pt-1 bg-gray-50/60 border-t border-gray-100">
+                        <div class="pt-3 space-y-4">
+                            <p class="text-sm text-gray-600 leading-relaxed">${flag.message}</p>
+                            
+                            ${(flag.expected || flag.actual) ? `
+                            <div class="grid grid-cols-2 gap-3">
+                                ${flag.expected ? `
+                                <div class="p-3 rounded-lg bg-green-50 border border-green-100">
+                                    <p class="text-[10px] font-bold uppercase text-green-600">Expected (Contract)</p>
+                                    <p class="text-sm text-green-700 font-semibold mt-1">${flag.expected}</p>
+                                </div>` : ''}
+                                ${flag.actual ? `
+                                <div class="p-3 rounded-lg ${s.bg} border ${s.border}">
+                                    <p class="text-[10px] font-bold uppercase ${s.color}">Actual (Ingested)</p>
+                                    <p class="text-sm font-semibold mt-1 ${s.color}">${flag.actual}</p>
+                                </div>` : ''}
+                            </div>` : ''}
+                            
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="flex items-start gap-2 p-2.5 rounded-lg bg-blue-50 border border-blue-100">
+                                    <i data-lucide="sparkles" class="h-3.5 w-3.5 mt-0.5 shrink-0 text-[#0084C7]"></i>
+                                    <div>
+                                        <p class="text-[10px] font-bold uppercase text-[#0084C7] mb-0.5">Contract Clause</p>
+                                        <p class="text-xs text-blue-700 leading-relaxed">${flag.clause_ref}</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-start gap-2 p-2.5 rounded-lg bg-gray-100 border border-gray-200">
+                                    <i data-lucide="${getSrcIcon(flag.data_source.system)}" class="h-3.5 w-3.5 mt-0.5 shrink-0 text-gray-400"></i>
+                                    <div>
+                                        <p class="text-[10px] font-bold uppercase text-gray-500 mb-0.5">Data Source</p>
+                                        <p class="text-xs font-semibold text-gray-700">${flag.data_source.system}</p>
+                                        <p class="text-[11px] text-gray-400 mt-0.5">${flag.data_source.type}</p>
+                                        <p class="text-[11px] text-gray-400">Updated: <span class="font-medium text-gray-500">${flag.data_source.updated}</span></p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start gap-2 p-2.5 rounded-lg ${s.bg} border ${s.border}">
+                                <i data-lucide="shield-check" class="h-3.5 w-3.5 mt-0.5 shrink-0 ${s.color}"></i>
+                                <div class="w-full">
+                                    <p class="text-[10px] font-bold uppercase mb-0.5 ${s.color}">Recommended Action</p>
+                                    <p class="text-xs text-gray-700 leading-relaxed">${flag.action}</p>
+                                    <div class="flex items-center gap-4 mt-2">
+                                        <span class="text-[11px] text-gray-500">Owner: <span class="font-semibold text-gray-700">${flag.owner}</span></span>
+                                        <span class="text-[11px] font-bold ${s.color}">Deadline: ${flag.deadline}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-center gap-2 text-xs text-gray-400">
+                                <i data-lucide="bell" class="h-3 w-3"></i>
+                                Response SLA: <span class="font-semibold text-gray-600">${s.response}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        function initCharts() {
+            Chart.defaults.font.family = 'Inter, sans-serif';
+            Chart.defaults.color = '#94a3b8';
+            Chart.defaults.scale.grid.color = '#f1f5f9';
+
+            // Bar Chart
+            new Chart(document.getElementById('volumeChart'), {
+                type: 'bar',
+                data: {
+                    labels: ['LHR', 'JFK', 'SIN', 'DXB', 'FRA', 'NRT'],
+                    datasets: [
+                        { label: 'Economy Long-Haul', data: [62400, 45200, 28000, 22000, 18000, 12000], backgroundColor: '#0084C7', borderRadius: 3 },
+                        { label: 'Business Class', data: [8200, 6100, 4300, 3200, 2700, 500], backgroundColor: '#93c5fd', borderRadius: 3 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { usePointStyle: true, boxWidth: 8, font: { size: 11 } }, position: 'bottom' }, tooltip: { padding: 10, cornerRadius: 8 } },
+                    scales: { y: { beginAtZero: true, ticks: { callback: v => (v / 1000) + 'k' } }, x: { grid: { display: false } } }
+                }
+            });
+
+            // Pie Chart
+            const pieData = [{ name: 'Critical', val: 1, c: '#ef4444' }, { name: 'High', val: 3, c: '#f97316' }, { name: 'Medium', val: 2, c: '#f59e0b' }, { name: 'OK', val: 5, c: '#22c55e' }];
+            new Chart(document.getElementById('pieChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: pieData.map(d => d.name),
+                    datasets: [{ data: pieData.map(d => d.val), backgroundColor: pieData.map(d => d.c), borderWidth: 2, borderColor: '#fff' }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '60%',
+                    plugins: { legend: { display: false } }
+                }
+            });
+            document.getElementById('pie-legend').innerHTML = pieData.map(s => `
+                <div class="flex items-center gap-1.5">
+                    <div class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${s.c}"></div>
+                    <span class="text-xs text-gray-500">${s.name} (${s.val})</span>
+                </div>
+            `).join('');
+
+            // SLA Chart
+            new Chart(document.getElementById('slaChart'), {
+                type: 'line',
+                data: {
+                    labels: ['Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'],
+                    datasets: [
+                        { label: 'On-Time Delivery', data: [99.1, 98.8, 98.2, 97.9, 98.6, 97.2], borderColor: '#0084C7', backgroundColor: '#0084C7', tension: 0.3 },
+                        { label: 'Temp Compliance', data: [100, 100, 99.1, 98.3, 100, 97.1], borderColor: '#ef4444', backgroundColor: '#ef4444', tension: 0.3 }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: { y: { min: 96, max: 101, ticks: { callback: v => v + '%' } }, x: { grid: { display: false } } },
+                    plugins: {
+                        legend: { position: 'bottom', labels: { usePointStyle: true, font: { size: 11 } } },
+                        annotation: { /* Could use chartjs-plugin-annotation for horizontal lines, but we skip for pure cdn simplicity */ }
+                    }
+                }
+            });
+
+            // Fin Chart
+            new Chart(document.getElementById('finChart'), {
+                type: 'line',
+                data: {
+                    labels: ['Apr', 'May', 'Jun', 'Jul'],
+                    datasets: [
+                        { label: 'Expected (Contract)', data: [2890000, 3010000, 3050000, 3125020], borderColor: '#22c55e', backgroundColor: '#22c55e', tension: 0.3 },
+                        { label: 'Actual (Invoice)', data: [2895000, 3008000, 3047000, 3195000], borderColor: '#f97316', backgroundColor: '#f97316', borderDash: [5, 5], tension: 0.3 }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: { y: { min: 2800000, max: 3300000, ticks: { callback: v => '$' + (v / 1000000).toFixed(1) + 'M' } }, x: { grid: { display: false } } },
+                    plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, font: { size: 11 } } } }
+                }
+            });
+        }
+
+        window.onload = initApp;
+    </script>
+</body>
+
+</html>
