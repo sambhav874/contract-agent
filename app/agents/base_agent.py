@@ -32,6 +32,7 @@ class BaseAgent(ABC):
     DEFAULT_TOP_K: int = 15
     MAX_CONTEXT_TOKENS: int = 90_000   # ~90k chars is safe for Gemini 1.5 Pro
     SELF_CORRECT_ATTEMPTS: int = 2
+    REQUIRE_CITATIONS: bool = True
 
     def __init__(self):
         self.retriever = get_retriever()
@@ -139,13 +140,24 @@ class BaseAgent(ABC):
                     "plus any new findings. Do NOT return a conversational summary."
                 )
 
+            # Build citation instruction if enabled
+            citation_instruction = ""
+            if self.REQUIRE_CITATIONS:
+                chunk_ids = [c.get("chunk_id") for c in context_chunks if c.get("chunk_id")]
+                if chunk_ids:
+                    citation_instruction = (
+                        "\n\nCITATION RULE: Every claim MUST cite source chunk(s) using "
+                        f"[CHUNK: <id>] format. Available IDs: {', '.join(chunk_ids)}. "
+                        "Claims without a valid citation will be rejected."
+                    )
+
             # Call LLM
             last_response = await call_gemini(
                 model=settings.gemini_analysis_model,
                 system_prompt=self.load_prompt(),
                 user_message=(
                     f"RETRIEVED CONTRACT CONTEXT:\n{context_text}\n"
-                    f"{round_instruction}\n\n---\n"
+                    f"{round_instruction}{citation_instruction}\n\n---\n"
                     f"USER QUERY: {user_query}"
                 ),
                 response_schema=self.output_schema.model_json_schema(),
@@ -155,6 +167,15 @@ class BaseAgent(ABC):
             # Try to validate
             try:
                 output = self.output_schema.model_validate(last_response)
+
+                # Post-validate citations if enabled
+                if self.REQUIRE_CITATIONS:
+                    validation_error = self._validate_citations(last_response, context_chunks)
+                    if validation_error:
+                        raise ValidationError.from_exception_data(
+                            title="CitationError",
+                            line_errors=[{"loc": ("citations",), "msg": validation_error, "type": "value_error"}],
+                        )
 
                 # Agent signals it needs more data
                 if output.needs_more_context and round_num < max_rounds - 1:
@@ -226,6 +247,22 @@ class BaseAgent(ABC):
 
     def _build_context(self, chunks: list[dict[str, Any]]) -> str:
         return format_chunks_for_context(chunks)
+
+    def _validate_citations(
+        self, response: dict[str, Any], chunks: list[dict[str, Any]]
+    ) -> str | None:
+        """
+        Validate that any [CHUNK: <id>] citations in the response exist in context.
+        Returns an error string if any citation is invalid, None otherwise.
+        """
+        import re as _re
+        text = json.dumps(response, default=str, ensure_ascii=False)
+        cited_ids = set(_re.findall(r"\[CHUNK:\s*([^\]]+)\]", text))
+        valid_ids = {c.get("chunk_id") for c in chunks if c.get("chunk_id")}
+        invalid = cited_ids - valid_ids
+        if invalid:
+            return f"Invalid chunk citations: {', '.join(invalid)}"
+        return None
 
     def _trim_context(
         self,

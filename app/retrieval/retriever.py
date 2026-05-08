@@ -1,10 +1,14 @@
-"""MongoDB hybrid search retriever with RRF, deduplication, and structural boosting."""
+"""MongoDB hybrid search retriever with RRF, deduplication, structural boosting, and Voyage rerank-2.5."""
 
 import asyncio
+import os
 import re
 from typing import Any
 
+import voyageai
+
 from app.config import settings
+
 from app.db.mongodb import MongoDB
 from app.ingestion.embedder import embed_query
 
@@ -25,9 +29,23 @@ class Retriever:
     VECTOR_INDEX = "chunk_embedding_index"
     DEFAULT_CANDIDATE_POOL = 200
     RRF_K = 60
+    DEFAULT_TOP_K = 15
+    RERANK_MODEL = "rerank-2.5"
+    RERANK_BATCH_SIZE = 20
 
     def __init__(self):
         self.vector_index = self.VECTOR_INDEX
+        self._voyage_client: voyageai.Client | None = None
+
+    @property
+    def voyage_client(self) -> voyageai.Client:
+        if self._voyage_client is None:
+            api_key = os.getenv("VOYAGE_API_KEY", settings.voyage_api_key)
+            self._voyage_client = voyageai.Client(
+                api_key=api_key,
+                base_url="https://ai.mongodb.com/v1",
+            )
+        return self._voyage_client
 
     # ------------------------------------------------------------------ #
     # Public interface                                                      #
@@ -40,6 +58,8 @@ class Retriever:
         tags: list[str] | None = None,
         levels: list[str] | None = None,
         top_k: int = 15,
+        enable_rerank: bool = True,
+        enable_expansion: bool = True,
     ) -> list[dict[str, Any]]:
         """
         Retrieve relevant chunks using hybrid RRF search.
@@ -50,34 +70,45 @@ class Retriever:
             tags: Section type tags OR structural paths to prioritise.
             levels: Chunk levels to include (macro/meso/micro). None = all.
             top_k: Maximum chunks to return.
+            enable_rerank: Run Voyage rerank-2.5 on RRF results.
+            enable_expansion: Use LLM query expansion before embedding.
 
         Returns:
             Ranked list of chunk dicts (embedding field excluded).
         """
-        query_embedding = await embed_query(query)
+        # ── Optional query expansion ──────────────────────────────────────
+        effective_query = query
+        semantic_keywords: list[str] = []
+        if enable_expansion:
+            from app.retrieval.query_expansion import expand_query
+            expansion = await expand_query(query)
+            effective_query = expansion.get("expanded_query", query)
+            semantic_keywords = expansion.get("key_terms", [])
 
         # Separate semantic tags from structural path hints
-        semantic_tags: list[str] = []
+        filter_tags: list[str] = []
         structural_hints: list[str] = []
         if tags:
             for t in tags:
                 if self._is_structural_hint(t):
                     structural_hints.append(t)
                 else:
-                    semantic_tags.append(t)
+                    filter_tags.append(t)
 
         pool = max(self.DEFAULT_CANDIDATE_POOL, top_k * 2)
 
         async def _empty_list():
             return []
 
+        query_embedding = await embed_query(effective_query)
+
         # Run all three searches in parallel
-        vector_task = self._vector_search(contract_id, query_embedding, semantic_tags, levels, pool)
-        keyword_task = self._keyword_search(contract_id, query, semantic_tags, levels, pool)
+        # Note: we ONLY filter by explicitly passed filter_tags, NOT semantic_keywords
+        vector_task = self._vector_search(contract_id, query_embedding, filter_tags, levels, pool)
+        keyword_task = self._keyword_search(contract_id, effective_query, filter_tags, levels, pool, keywords=semantic_keywords)
         struct_task = (
             self._structural_search(contract_id, structural_hints, levels, pool)
-            if structural_hints
-            else _empty_list()
+            if structural_hints else _empty_list()
         )
 
         vector_results, keyword_results, struct_results = await asyncio.gather(
@@ -93,6 +124,9 @@ class Retriever:
             ],
             top_k=top_k,
         )
+
+        if enable_rerank:
+            fused = await self._rerank_voyage(query, fused, top_k=top_k)
 
         # Hard fallback: if nothing came back, return first N chunks
         if not fused:
@@ -183,8 +217,9 @@ class Retriever:
         tags: list[str] | None,
         levels: list[str] | None,
         limit: int,
+        keywords: list[str] | None = None,
     ) -> list[dict[str, Any]]:
-        """Lexical search using Atlas full-text search, with regex fallback."""
+        """Lexical search using Atlas full-text search, with robust regex fallback."""
         must_filters: list[dict[str, Any]] = [
             {"text": {"query": contract_id, "path": "contract_id"}}
         ]
@@ -214,13 +249,26 @@ class Retriever:
         except Exception:
             pass
 
-        # Fallback: simple regex search
+        # Fallback: more robust multi-keyword regex search
+        search_keywords = keywords if keywords else [k for k in re.split(r"[\s,]+", query) if len(k) > 3]
+        if not search_keywords:
+            search_keywords = [query[:100]]
+
+        # Use an $or search for keywords to increase recall in fallback
+        # We search both in 'text' and 'structural_path'
+        regex_clauses = []
+        for kw in search_keywords[:8]:  # Increase to 8 keywords
+            escaped = re.escape(kw)
+            regex_clauses.append({"text": {"$regex": escaped, "$options": "i"}})
+            regex_clauses.append({"structural_path": {"$regex": escaped, "$options": "i"}})
+
         regex_filter: dict[str, Any] = {
             "contract_id": contract_id,
-            "text": {"$regex": re.escape(query[:100]), "$options": "i"},
+            "$or": regex_clauses
         }
         if levels:
             regex_filter["chunk_level"] = {"$in": levels}
+        
         return await collection.find(regex_filter, {"embedding": 0}).limit(limit).to_list(limit)
 
     async def _structural_search(
@@ -253,6 +301,55 @@ class Retriever:
         return await collection.find(flt, {"embedding": 0}).limit(limit).to_list(limit)
 
     # ------------------------------------------------------------------ #
+    # Reranking                                                             #
+    # ------------------------------------------------------------------ #
+
+    async def _rerank_voyage(
+        self,
+        query: str,
+        candidates: list[dict[str, Any]],
+        top_k: int,
+    ) -> list[dict[str, Any]]:
+        """
+        Second-pass reranking with Voyage rerank-2.5.
+
+        Sends top-RMF candidates through Voyage's cross-encoder reranker
+        and returns re-ordered results with ``relevance_score`` attached.
+        """
+        if not candidates:
+            return []
+
+        documents = [c.get("text", "") for c in candidates]
+        rerank_k = min(self.RERANK_BATCH_SIZE * 2, len(documents))
+
+        try:
+            loop = asyncio.get_event_loop()
+            reranking = await loop.run_in_executor(
+                None,
+                lambda: self.voyage_client.rerank(
+                    query=query,
+                    documents=documents,
+                    model=self.RERANK_MODEL,
+                    top_k=rerank_k,
+                ),
+            )
+        except Exception:
+            # Fail open — return original RRF ordering on any error
+            return candidates
+
+        # Map reranker output back to candidate docs
+        idx_map = {r.index: r for r in reranking.results}
+        reranked: list[dict[str, Any]] = []
+        for i, doc in enumerate(candidates):
+            if i in idx_map:
+                doc = dict(doc)  # shallow copy
+                doc["relevance_score"] = round(idx_map[i].relevance_score, 6)
+                reranked.append(doc)
+
+        # Slice after sorting by relevance_score descending
+        return sorted(reranked, key=lambda d: d.get("relevance_score", 0.0), reverse=True)[:top_k]
+
+    # ------------------------------------------------------------------ #
     # RRF fusion                                                            #
     # ------------------------------------------------------------------ #
 
@@ -277,13 +374,13 @@ class Retriever:
                 if not cid:
                     continue
                 if cid not in chunk_map:
-                    chunk_map[cid] = chunk
+                    chunk_map[cid] = dict(chunk)  # shallow copy to avoid mutating originals
                 scores[cid] = scores.get(cid, 0.0) + weight / (self.RRF_K + rank + 1)
 
         sorted_ids = sorted(scores, key=lambda x: scores[x], reverse=True)
         final: list[dict[str, Any]] = []
         for cid in sorted_ids[:top_k]:
-            doc = chunk_map[cid]
+            doc = dict(chunk_map[cid])  # fresh copy per reuse
             doc["rrf_score"] = round(scores[cid], 6)
             final.append(doc)
 

@@ -710,17 +710,37 @@ def check_breaches(contract_id: str):
     async def _run():
         await MongoDB.connect()
         kpis = await MongoDB.get_kpis(contract_id)
-        actuals = await MongoDB.get_latest_actuals(contract_id)
+        actuals_raw = await MongoDB.get_all_actuals(contract_id)
         
         if not kpis:
             console.print("[red]No KPIs found for this contract.[/red]")
             return
-        if not actuals:
+        if not actuals_raw:
             console.print("[yellow]No actual performance data found.[/yellow]")
             return
             
-        # Map kpis by id for easy lookup
-        kpi_map = {k["kpi_id"]: k for k in kpis}
+        # Map kpis by id for easy lookup (Normalized to lowercase/snake_case)
+        def normalize_id(idx):
+            return str(idx).lower().replace("-", "_")
+
+        kpi_map = {normalize_id(k["kpi_id"]): k for k in kpis}
+        
+        # Aggregate (Average) actuals across the period
+        actuals_by_kpi = {}
+        for a in actuals_raw:
+            norm_id = normalize_id(a["kpi_id"])
+            if norm_id not in actuals_by_kpi:
+                actuals_by_kpi[norm_id] = []
+            actuals_by_kpi[norm_id].append(a)
+            
+        actuals = []
+        for norm_id, data in actuals_by_kpi.items():
+            vals = [float(d.get("value", 0)) for d in data]
+            avg_val = sum(vals) / len(vals) if vals else 0
+            latest = sorted(data, key=lambda x: x.get("timestamp", ""), reverse=True)[0]
+            latest["value"] = round(avg_val, 2)
+            latest["sample_count"] = len(data)
+            actuals.append(latest)
         
         table = Table(title=f"Breach Report: {contract_id}", show_lines=True)
         table.add_column("KPI", style="cyan")
@@ -732,17 +752,19 @@ def check_breaches(contract_id: str):
         
         breaches_found = 0
         for actual in actuals:
-            kpi = kpi_map.get(actual["kpi_id"])
+            kpi = kpi_map.get(normalize_id(actual["kpi_id"]))
             if not kpi: continue
             
-            result = BreachEngine.check_breach(kpi, actual)
+            result = BreachEngine.check_breach(kpi, actual, sample_count=actual.get("sample_count", 1))
             
+            # Always insert the breach result so the UI can show "OK" statuses and latest actuals
+            await MongoDB.insert_breach(result.model_dump())
+
             status = "[green]ON TRACK[/green]"
             remediation_info = "-"
             if result.is_breach:
                 status = "[red]BREACH[/red]"
                 breaches_found += 1
-                await MongoDB.insert_breach(result.model_dump())
                 
                 # Get remediation from kpi vault
                 rem = kpi.get("remediation")
@@ -755,9 +777,9 @@ def check_breaches(contract_id: str):
             table.add_row(
                 kpi["name"],
                 f"{kpi['operator']} {kpi['value_min']} {kpi['unit']}",
-                f"{actual['value']} {actual['unit']}",
+                f"{actual['value']} {actual['unit']} [dim](avg of {actual['sample_count']})[/dim]",
                 status,
-                result.penalty_triggered if result.is_breach else "-",
+                f"[bold red]${result.penalty_amount:,.2f}[/bold red]" if result.is_breach else "-",
                 remediation_info
             )
 
@@ -824,7 +846,8 @@ def ingest_actuals(contract_id: str, file: str | None = None, kpi_id: str | None
                                 kpi_id=row["kpi_id"],
                                 value=float(row["value"]),
                                 unit=row.get("unit", ""),
-                                source=source,
+                                timestamp=row.get("timestamp") or datetime.now().isoformat(),
+                                source=row.get("source") or source,
                                 metadata={"filename": path.name}
                             ))
                 elif path.suffix == ".json":

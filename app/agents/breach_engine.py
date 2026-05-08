@@ -17,14 +17,28 @@ class BreachEngine:
     }
 
     @classmethod
-    def check_breach(cls, kpi: Dict[str, Any], actual: Dict[str, Any]) -> BreachResult:
-        """
-        Compare actual performance against KPI threshold.
+    def calculate_penalty(cls, kpi: Dict[str, Any], actual_val: float) -> float:
+        """Calculate penalty based on the deviation from threshold."""
+        threshold = kpi.get("value_min", 0)
+        consequence_val = kpi.get("consequence_value", 0)
+        # Check both fields for penalty description
+        penalty_desc = (str(kpi.get("consequence", "")) + " " + str(kpi.get("consequence_unit", ""))).lower()
         
-        A breach occurs if the target condition is FALSE.
-        Target: "Delivery Delay <= 4 hours"
-        If Actual is 6 hours: 6 <= 4 is FALSE -> Breach.
-        """
+        # Linear scaling: e.g. "$1,000 per percentage point below target"
+        if "per percentage point" in penalty_desc:
+            deviation = max(0, threshold - actual_val)
+            return round(deviation * consequence_val, 2)
+        
+        # Hourly scaling: e.g. "$500 per hour over threshold"
+        if "per hour" in penalty_desc:
+            deviation = max(0, actual_val - threshold)
+            return round(deviation * consequence_val, 2)
+            
+        return consequence_val
+
+    @classmethod
+    def check_breach(cls, kpi: Dict[str, Any], actual: Dict[str, Any], sample_count: int = 1) -> BreachResult:
+        """Compare actual performance against KPI threshold."""
         op_str = kpi.get("operator")
         threshold = kpi.get("value_min")
         actual_val = actual.get("value")
@@ -35,18 +49,13 @@ class BreachEngine:
         elif op_str in cls.OPERATORS:
             is_on_track = cls.OPERATORS[op_str](actual_val, threshold)
         else:
-            # Fallback for unknown operators or text-based KPIs
             is_on_track = True 
 
-        # Penalty logic
         penalty_triggered = None
         penalty_amount = 0.0
         if not is_on_track:
             penalty_triggered = kpi.get("trigger_condition")
-            # Simple linear penalty if consequence is provided
-            consequence = kpi.get("consequence_value")
-            if consequence:
-                penalty_amount = consequence
+            penalty_amount = cls.calculate_penalty(kpi, actual_val)
 
         return BreachResult(
             contract_id=kpi["contract_id"],
@@ -58,6 +67,7 @@ class BreachEngine:
             penalty_triggered=penalty_triggered,
             penalty_amount=penalty_amount,
             remediation=kpi.get("remediation"),
-            remediation_sla=kpi.get("remediation_sla")
+            remediation_sla=kpi.get("remediation_sla"),
+            sample_count=sample_count
         )
 

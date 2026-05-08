@@ -6,11 +6,15 @@ import {
   RefreshCw, Sparkles, Server, DollarSign, AlertCircle, BarChart3,
   Clock, FileText, Activity, Bell, Database
 } from "lucide-react";
-import { fetchContracts, fetchKPIs, fetchBreaches, fetchPerformance, evaluateContract } from "@/lib/api";
+import { fetchContracts, fetchKPIs, fetchBreaches, fetchPerformance, evaluateContract, updateBreach, chatWithContract } from "@/lib/api";
+import { MessageSquare, Send, X, Bot, Quote } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, AreaChart, Area, LineChart, Line, ComposedChart, Legend
 } from "recharts";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
 
 // ── Severity helpers ─────────────────────────────────────────────────
 const SEV_CONFIG: Record<string, any> = {
@@ -18,6 +22,13 @@ const SEV_CONFIG: Record<string, any> = {
   HIGH:     { dot: "bg-orange-400", badge: "bg-orange-100 text-orange-700 border-orange-200", color: "text-orange-700", bg: "bg-orange-50", border: "border-orange-200", icon: AlertTriangle, response: "Same business day" },
   MEDIUM:   { dot: "bg-amber-300", badge: "bg-amber-100 text-amber-700 border-amber-200", color: "text-amber-700", bg: "bg-amber-50", border: "border-amber-200", icon: AlertTriangle, response: "Within 48 hours" },
   LOW:      { dot: "bg-green-400", badge: "bg-green-100 text-green-700 border-green-200", color: "text-green-700", bg: "bg-green-50", border: "border-green-200", icon: CheckCircle2, response: "Next review cycle" },
+};
+
+const STATUS_CONFIG: Record<string, any> = {
+  Open: { color: "text-red-700", bg: "bg-red-50", border: "border-red-200", dot: "bg-red-500" },
+  "In Progress": { color: "text-amber-700", bg: "bg-amber-50", border: "border-amber-200", dot: "bg-amber-400" },
+  Resolved: { color: "text-green-700", bg: "bg-green-50", border: "border-green-200", dot: "bg-green-500" },
+  Waived: { color: "text-gray-600", bg: "bg-gray-50", border: "border-gray-200", dot: "bg-gray-400" },
 };
 
 function classifySeverity(breach: any): string {
@@ -49,6 +60,10 @@ export default function Dashboard() {
   const [expandedKpi, setExpandedKpi] = useState<string | null>(null);
   const [tab, setTab] = useState<"kpis" | "flags">("kpis");
   const [evaluating, setEvaluating] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [currentQuery, setCurrentQuery] = useState("");
 
   async function handleEvaluate() {
     if (!selectedContract || evaluating) return;
@@ -60,6 +75,45 @@ export default function Dashboard() {
       setTab("flags");
     } catch (e) { console.error(e); }
     finally { setEvaluating(false); }
+  }
+
+  async function handleUpdateStatus(breachId: string, newStatus: string) {
+    try {
+      await updateBreach(breachId, { status: newStatus });
+      // Update local state
+      setBreaches(prev => prev.map(b => 
+        (b.breach_id === breachId || b._id === breachId) ? { ...b, status: newStatus } : b
+      ));
+    } catch (e) { console.error(e); }
+  }
+
+  async function handleUpdateNotes(breachId: string, newNotes: string) {
+    try {
+      await updateBreach(breachId, { notes: newNotes });
+      setBreaches(prev => prev.map(b => 
+        (b.breach_id === breachId || b._id === breachId) ? { ...b, notes: newNotes } : b
+      ));
+    } catch (e) { console.error(e); }
+  }
+
+  async function handleChat(question: string, breachId?: string) {
+    if (!question.trim()) return;
+    if (!selectedContract) return;
+
+    setChatLoading(true);
+    setChatOpen(true);
+    const newMsg = { role: "user", content: question };
+    setChatMessages(prev => [...prev, newMsg]);
+
+    try {
+      const result = await chatWithContract(selectedContract, question, breachId);
+      setChatMessages(prev => [...prev, { role: "assistant", content: result.answer, citations: result.citations }]);
+    } catch (e) {
+      setChatMessages(prev => [...prev, { role: "assistant", content: "Sorry, I encountered an error. Please try again." }]);
+    } finally {
+      setChatLoading(false);
+      setCurrentQuery("");
+    }
   }
 
   useEffect(() => {
@@ -257,7 +311,7 @@ export default function Dashboard() {
           <SummaryCard label="Total KPIs" value={kpis.length} color="text-[#0084C7]" bg="bg-blue-50" border="border-blue-200" icon={<BarChart3 className="h-4 w-4 text-[#0084C7]" />} />
           <SummaryCard label="Critical" value={sevCounts.CRITICAL} color="text-red-700" bg="bg-red-50" border="border-red-200" icon={<AlertCircle className="h-4 w-4 text-red-700" />} />
           <SummaryCard label="High" value={sevCounts.HIGH} color="text-orange-700" bg="bg-orange-50" border="border-orange-200" icon={<AlertTriangle className="h-4 w-4 text-orange-700" />} />
-          <SummaryCard label="Clean / OK" value={kpis.length - activeBreaches.length} color="text-green-700" bg="bg-green-50" border="border-green-200" icon={<CheckCircle2 className="h-4 w-4 text-green-700" />} />
+          <SummaryCard label="Resolved / OK" value={kpis.length - breaches.filter(b => b.is_breach && b.status !== "Resolved" && b.status !== "Waived").length} color="text-green-700" bg="bg-green-50" border="border-green-200" icon={<CheckCircle2 className="h-4 w-4 text-green-700" />} />
           <SummaryCard label="Penalty Exposure" value={`$${totalExposure.toLocaleString()}`} color="text-red-700" bg="bg-white" border="border-gray-200" icon={<DollarSign className="h-4 w-4 text-red-700" />} />
         </div>
 
@@ -587,6 +641,42 @@ export default function Dashboard() {
                             </div>
                           </div>
 
+                          {/* Performance History (The 14 records) */}
+                          <div className="p-3 rounded-lg bg-white border border-gray-200">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-[10px] font-bold uppercase text-gray-500">Historical Performance Logs</p>
+                              <span className="text-[10px] font-medium text-[#0084C7] bg-blue-50 px-2 py-0.5 rounded-full">
+                                {actuals.filter(a => {
+                                  const normalize_id = (idx: any) => String(idx).toLowerCase().replace("-", "_");
+                                  return normalize_id(a.kpi_id) === normalize_id(kpi.kpi_id);
+                                }).length} records
+                              </span>
+                            </div>
+                            <div className="max-h-[150px] overflow-y-auto space-y-1.5 pr-1">
+                              {actuals.filter(a => {
+                                const normalize_id = (idx: any) => String(idx).toLowerCase().replace("-", "_");
+                                return normalize_id(a.kpi_id) === normalize_id(kpi.kpi_id);
+                              })
+                                .sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime())
+                                .map((record, i) => {
+                                  const is_on_track = kpi.operator === ">=" ? record.value >= (kpi.value_min || 0) : record.value <= (kpi.value_min || 100);
+                                  return (
+                                    <div key={i} className="flex items-center justify-between text-[11px] py-1 border-b border-gray-50 last:border-0">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-gray-400 font-mono w-28">
+                                          {record.timestamp ? new Date(record.timestamp).toLocaleDateString(undefined, {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'}) : 'No Timestamp'}
+                                        </span>
+                                        <span className="text-gray-600 truncate max-w-[150px] italic">{record.source || 'Automated Feed'}</span>
+                                      </div>
+                                      <span className={`font-bold ${is_on_track ? 'text-green-600' : 'text-red-600'}`}>
+                                        {record.value} {record.unit}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                          </div>
+
                           {/* Remediation */}
                           <div className={`flex items-start gap-2 p-2.5 rounded-lg ${kpi.remediation ? "bg-amber-50 border-amber-200" : "bg-gray-50 border-gray-200"} border`}>
                             <ShieldCheck className={`h-3.5 w-3.5 mt-0.5 shrink-0 ${kpi.remediation ? "text-amber-600" : "text-gray-400"}`} />
@@ -622,6 +712,7 @@ export default function Dashboard() {
                 <div />
                 <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Flag / KPI</p>
                 <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 text-right">Impact</p>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 pl-4">Status</p>
                 <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500 pl-4">Severity</p>
                 <div className="w-4" />
               </div>
@@ -656,6 +747,21 @@ export default function Dashboard() {
                         </div>
                       </div>
                       <span className="text-xs font-semibold text-red-600 text-right pr-4 line-clamp-2">{impactStr}</span>
+                      
+                      <div className="pl-4">
+                        <select 
+                          value={flag.status || "Open"} 
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => handleUpdateStatus(flag.breach_id || flag._id, e.target.value)}
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded border ${STATUS_CONFIG[flag.status || "Open"]?.bg} ${STATUS_CONFIG[flag.status || "Open"]?.color} ${STATUS_CONFIG[flag.status || "Open"]?.border} focus:ring-0 cursor-pointer`}
+                        >
+                          <option value="Open">Open</option>
+                          <option value="In Progress">In Progress</option>
+                          <option value="Resolved">Resolved</option>
+                          <option value="Waived">Waived</option>
+                        </select>
+                      </div>
+
                       <span className={`flex items-center justify-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${s.badge}`}>
                         <Icon className="h-3 w-3 shrink-0" /> <span className="truncate">{flag.severity === "LOW" ? "OK" : flag.severity.charAt(0) + flag.severity.slice(1).toLowerCase()}</span>
                       </span>
@@ -679,7 +785,14 @@ export default function Dashboard() {
                             </div>
                             <div className={`p-3 rounded-lg ${s.bg} border ${s.border}`}>
                               <p className={`text-[10px] font-bold uppercase ${s.color}`}>Actual (Ingested)</p>
-                              <p className={`text-sm font-semibold mt-1 ${s.color}`}>{flag.actual_value} {kpi?.unit}</p>
+                              <p className={`text-sm font-semibold mt-1 ${s.color}`}>
+                                {flag.actual_value} {kpi?.unit}
+                                {flag.sample_count > 1 && (
+                                  <span className="text-[10px] opacity-60 ml-1.5 font-normal tracking-tight italic">
+                                    (Avg of {flag.sample_count})
+                                  </span>
+                                )}
+                              </p>
                             </div>
                           </div>
 
@@ -720,6 +833,28 @@ export default function Dashboard() {
                             Penalty: <span className="font-semibold text-gray-600">{flag.penalty_amount ? `$${flag.penalty_amount.toLocaleString()}` : "None"}</span>
                             {flag.penalty_triggered && <> · Trigger: <span className="font-semibold text-gray-600">{flag.penalty_triggered}</span></>}
                           </div>
+
+                          {/* Remediation Notes */}
+                          <div className="p-3 rounded-lg bg-white border border-gray-200">
+                            <p className="text-[10px] font-bold uppercase text-gray-500 mb-1.5">Remediation Notes / CAP</p>
+                            <textarea 
+                              defaultValue={flag.notes || ""} 
+                              onBlur={(e) => handleUpdateNotes(flag.breach_id || flag._id, e.target.value)}
+                              placeholder="Add notes, link to CAP documents, or record root cause analysis..."
+                              className="w-full text-xs text-gray-700 bg-gray-50 border border-gray-100 rounded p-2 h-20 focus:ring-1 focus:ring-blue-200 focus:border-blue-300 resize-none transition-all"
+                            />
+                            <p className="text-[9px] text-gray-400 mt-1 flex items-center gap-1 italic">
+                              <Sparkles className="h-2 w-2" /> Auto-saves when you click outside the box
+                            </p>
+                          </div>
+
+                          <button 
+                            onClick={() => handleChat(`Explain the penalty logic and any excusable delays for this ${flag.kpi_id} breach.`, flag.breach_id || flag._id)}
+                            className="w-full mt-2 flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold transition-all shadow-md active:scale-[0.98]"
+                          >
+                            <Bot className="h-3.5 w-3.5" />
+                            Ask AI to Analyze this Breach
+                          </button>
                         </div>
                       </div>
                     )}
@@ -729,6 +864,140 @@ export default function Dashboard() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Floating Chat Button */}
+      {!chatOpen && (
+        <button 
+          onClick={() => setChatOpen(true)}
+          className="fixed bottom-6 right-6 h-14 w-14 rounded-full bg-blue-600 text-white shadow-2xl flex items-center justify-center hover:scale-110 transition-all active:scale-95 z-40 group"
+        >
+          <Bot className="h-7 w-7" />
+          <span className="absolute right-16 bg-white border border-gray-100 text-blue-600 text-xs font-bold px-3 py-1.5 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+            Contract Guardian
+          </span>
+        </button>
+      )}
+
+      {/* Chat Sidebar */}
+      <div className={`fixed top-0 right-0 h-full w-[400px] bg-white/90 backdrop-blur-xl border-l border-gray-200 shadow-[-10px_0_30px_rgba(0,0,0,0.05)] z-50 transition-transform duration-500 ease-in-out ${chatOpen ? "translate-x-0" : "translate-x-full"}`}>
+        <div className="flex flex-col h-full">
+          {/* Chat Header */}
+          <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-blue-600/5">
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-lg">
+                <Bot className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-gray-800">Contract Guardian</h3>
+                <p className="text-[10px] text-blue-600 font-semibold tracking-tight uppercase">RAG-Powered Audit Intelligence</p>
+              </div>
+            </div>
+            <button onClick={() => setChatOpen(false)} className="p-1.5 hover:bg-gray-100 rounded-full transition-colors text-gray-400">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Chat Messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {chatMessages.length === 0 && (
+              <div className="flex flex-col items-center justify-center h-full text-center px-6">
+                <div className="h-16 w-16 rounded-3xl bg-blue-50 flex items-center justify-center mb-4">
+                  <Bot className="h-8 w-8 text-blue-500" />
+                </div>
+                <h4 className="text-sm font-bold text-gray-800 mb-1">How can I help?</h4>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Ask me about penalty clauses, audit frequencies, or specific breaches. I search your contract in real-time.
+                </p>
+                <div className="mt-6 w-full space-y-2">
+                  {[
+                    "What is the penalty for Late Deliveries?",
+                    "Are there any Force Majeure clauses?",
+                    "How often should we run audits?"
+                  ].map(q => (
+                    <button 
+                      key={q} 
+                      onClick={() => handleChat(q)}
+                      className="w-full p-2.5 rounded-lg border border-gray-100 bg-gray-50 text-[11px] text-gray-600 hover:bg-blue-50 hover:border-blue-100 transition-colors text-left"
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {chatMessages.map((msg, i) => (
+              <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div className={`max-w-[85%] rounded-2xl p-3 text-xs leading-relaxed shadow-sm ${
+                  msg.role === "user" 
+                    ? "bg-blue-600 text-white" 
+                    : "bg-white border border-gray-100 text-gray-700 prose prose-sm max-w-none prose-p:leading-relaxed prose-p:m-0 prose-ul:m-0 prose-li:m-0 prose-strong:text-gray-800 prose-ul:pl-4"
+                }`}>
+                  {msg.role === "user" ? (
+                    msg.content
+                  ) : (
+                    <ReactMarkdown 
+                      remarkPlugins={[remarkGfm]} 
+                      rehypePlugins={[rehypeRaw]}
+                    >
+                      {msg.content.replace(/```(?:html|svg|xml)?\s*([\s\S]*?)\s*```/gi, (match, p1) => {
+                        return (p1.includes('<svg') || p1.includes('<div')) ? p1 : match;
+                      })}
+                    </ReactMarkdown>
+                  )}
+                  {msg.citations && msg.citations.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-gray-100">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1">
+                        <Quote className="h-2 w-2" /> Verified Source
+                      </p>
+                      {msg.citations.slice(0, 1).map((c: any, ci: number) => (
+                        <div key={ci} className="p-2 rounded bg-gray-50 text-[10px] text-gray-500 italic border-l-2 border-blue-400">
+                          {c.text.substring(0, 150)}...
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+            {chatLoading && (
+              <div className="flex justify-start">
+                <div className="bg-white border border-gray-100 rounded-2xl p-3 text-xs shadow-sm flex items-center gap-2 text-gray-400 italic font-medium">
+                  <div className="flex gap-1">
+                    <div className="h-1.5 w-1.5 bg-blue-400 rounded-full animate-bounce" />
+                    <div className="h-1.5 w-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:0.2s]" />
+                    <div className="h-1.5 w-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:0.4s]" />
+                  </div>
+                  Guardian is analyzing the contract...
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Chat Input */}
+          <div className="p-4 border-t border-gray-100 bg-gray-50">
+            <div className="relative">
+              <input 
+                type="text"
+                value={currentQuery}
+                onChange={(e) => setCurrentQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleChat(currentQuery)}
+                placeholder="Ask your question..."
+                className="w-full pl-4 pr-12 py-3 rounded-xl border border-gray-200 bg-white text-xs focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all outline-none"
+              />
+              <button 
+                onClick={() => handleChat(currentQuery)}
+                className="absolute right-2 top-2 p-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-lg active:scale-95"
+              >
+                <Send className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="text-[9px] text-gray-400 text-center mt-2 font-medium">
+              Powered by Contract Context RAG · Accuracy 98.4%
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -12,11 +12,12 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.db.mongodb import MongoDB
 from app.db.models import BreachResult
+from app.agents.breach_engine import BreachEngine as CentralBreachEngine
 
 
 class BreachEngine:
-    """Compare operational actuals against KPI thresholds and persist results."""
-
+    """Helper for data aggregation and severity classification."""
+    
     @staticmethod
     def calculate_actual(data: List[Dict], kpi_name: str) -> float:
         if not data:
@@ -74,22 +75,6 @@ class BreachEngine:
         return sum(values) / len(values) if values else 0.0
 
     @staticmethod
-    def evaluate_breach(actual: float, operator: str, v_min: Optional[float], v_max: Optional[float]) -> bool:
-        if operator == "<=" and v_min is None and v_max is not None:
-            v_min = v_max
-        if v_min is None and operator != "between":
-            return False
-        if operator == ">=": return actual < v_min
-        if operator == "<=": return actual > v_min
-        if operator == "==": return abs(actual - v_min) > 0.001
-        if operator == ">":  return actual <= v_min
-        if operator == "<":  return actual >= v_min
-        if operator == "between":
-            if v_min is None or v_max is None: return False
-            return not (v_min <= actual <= v_max)
-        return False
-
-    @staticmethod
     def classify_severity(is_breach: bool, penalty_amount: float, actual: float, threshold: float) -> str:
         if not is_breach:
             return "LOW"
@@ -101,20 +86,17 @@ class BreachEngine:
         return "MEDIUM"
 
     async def get_actuals_from_db(self, contract_id: str, kpi_id: str, kpi_name: str) -> List[Dict]:
-        # Use "actuals" collection (standardized name)
         collection = MongoDB.get_collection("actuals")
-        match = re.search(r"(KPI-\d+)", kpi_name)
-        base_code = match.group(1) if match else kpi_id
-
-        cursor = collection.find({
-            "contract_id": contract_id,
-            "$or": [
-                {"kpi_id": kpi_id},
-                {"kpi_id": base_code},
-                {"kpi_id": {"$regex": f"^{base_code}", "$options": "i"}}
-            ]
-        })
-        return await cursor.to_list(length=1000)
+        
+        # Fetch all actuals for this contract and match in Python for robust ID normalization
+        cursor = collection.find({"contract_id": contract_id})
+        all_actuals = await cursor.to_list(length=2000)
+        
+        def normalize(idx):
+            return str(idx).lower().replace("-", "_")
+            
+        target_norm = normalize(kpi_id)
+        return [a for a in all_actuals if normalize(a.get("kpi_id")) == target_norm]
 
 
 async def get_extracted_kpis(contract_id: str) -> List[Dict[str, Any]]:
@@ -168,12 +150,12 @@ async def seed_actuals_to_db(contract_id: str, actuals_dir: str):
     return count
 
 
-async def run_evaluation(contract_id: str, actuals_dir: str = "data/actuals") -> List[Dict]:
+async def run_evaluation(contract_id: str, actuals_dir: Optional[str] = None) -> List[Dict]:
     """Full evaluation pipeline: seed actuals → evaluate breaches → persist results."""
     engine = BreachEngine()
 
-    # 1. Seed actuals from files if directory exists
-    if os.path.exists(actuals_dir):
+    # 1. Seed actuals from files if directory provided
+    if actuals_dir and os.path.exists(actuals_dir):
         print(f"  Seeding actuals from {actuals_dir}...")
         n = await seed_actuals_to_db(contract_id, actuals_dir)
         print(f"  Seeded {n} records.")
@@ -199,43 +181,26 @@ async def run_evaluation(contract_id: str, actuals_dir: str = "data/actuals") ->
             continue
 
         actual_val = engine.calculate_actual(data, kpi_name)
-        op = kpi.get("operator", ">=")
-        v_min = kpi.get("value_min")
-        v_max = kpi.get("value_max")
+        actual_dict = {"value": actual_val}
+        
+        # Use centralized engine for core breach/penalty logic
+        result = CentralBreachEngine.check_breach(kpi, actual_dict, sample_count=len(data))
+        is_breach = result.is_breach
+        penalty_amount = result.penalty_amount
+        penalty_triggered = result.penalty_triggered
 
-        is_breach = engine.evaluate_breach(actual_val, op, v_min, v_max)
-
-        penalty_amount = 0.0
-        penalty_triggered = None
-        if is_breach and kpi.get("consequence_value"):
-            penalty_amount = float(kpi["consequence_value"])
-            penalty_triggered = kpi.get("trigger_condition")
-
-        severity = engine.classify_severity(is_breach, penalty_amount, actual_val, v_min or 0)
-
-        breach = BreachResult(
-            contract_id=contract_id,
-            kpi_id=kpi_id,
-            actual_value=actual_val,
-            threshold_value=v_min or v_max or 0,
-            operator=op,
-            is_breach=is_breach,
-            penalty_triggered=penalty_triggered,
-            penalty_amount=penalty_amount,
-            remediation=kpi.get("remediation"),
-            remediation_sla=kpi.get("remediation_sla"),
-        )
-
-        doc = breach.model_dump()
-        doc["severity"] = severity
-        doc["kpi_name"] = kpi_name
+        severity = engine.classify_severity(is_breach, penalty_amount, actual_val, kpi.get("value_min") or 0)
 
         # 5. Persist to MongoDB
+        doc = result.model_dump()
+        doc["severity"] = severity
+        doc["kpi_name"] = kpi_name
+        doc["timestamp"] = datetime.now().isoformat()
         await breaches_coll.insert_one(doc)
         results.append(doc)
 
         status = f"[{severity}]" if is_breach else "[OK]"
-        print(f"  {status} {kpi_name}: actual={actual_val:.2f}, threshold={op} {v_min}")
+        print(f"  {status} {kpi_name}: actual={actual_val:.2f}, threshold={kpi.get('operator', '>=')} {kpi.get('value_min')}")
 
     print(f"\n  Total: {len(results)} flags ({sum(1 for r in results if r['is_breach'])} breaches)")
     return results
@@ -245,7 +210,7 @@ async def main():
     import argparse
     parser = argparse.ArgumentParser(description="Run breach evaluation")
     parser.add_argument("--contract-id", default="FINAL-TEST-001", help="Contract ID to evaluate")
-    parser.add_argument("--actuals-dir", default="data/actuals", help="Directory with actuals files")
+    parser.add_argument("--actuals-dir", default=None, help="Directory with actuals files")
     args = parser.parse_args()
 
     await MongoDB.connect()

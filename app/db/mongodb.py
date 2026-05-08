@@ -193,6 +193,12 @@ class MongoDB:
         return str(result.inserted_id)
 
     @classmethod
+    async def get_all_actuals(cls, contract_id: str) -> list[dict[str, Any]]:
+        """Get all historical actual values for a contract."""
+        collection = cls.get_collection("actuals")
+        return await collection.find({"contract_id": contract_id}).sort("timestamp", -1).to_list(None)
+
+    @classmethod
     async def get_latest_actuals(cls, contract_id: str) -> list[dict[str, Any]]:
         """Get the latest actual value for each KPI in a contract."""
         collection = cls.get_collection("actuals")
@@ -222,6 +228,24 @@ class MongoDB:
         """Get all breach results for a contract."""
         collection = cls.get_collection("breaches")
         return await collection.find({"contract_id": contract_id}).sort("timestamp", -1).to_list(None)
+
+    @classmethod
+    async def update_breach(cls, breach_id: str, updates: dict[str, Any]) -> bool:
+        """Update a breach result."""
+        collection = cls.get_collection("breaches")
+        from bson import ObjectId
+        
+        # Try updating by breach_id string first
+        result = await collection.update_one({"breach_id": breach_id}, {"$set": updates})
+        if result.matched_count > 0:
+            return True
+            
+        # Try updating by MongoDB _id
+        try:
+            result = await collection.update_one({"_id": ObjectId(breach_id)}, {"$set": updates})
+            return result.matched_count > 0
+        except:
+            return False
 
     @staticmethod
     def vector_search_index_definition() -> dict:

@@ -30,3 +30,23 @@ export async function evaluateContract(contractId: string) {
   return res.json();
 }
 
+export async function updateBreach(breachId: string, updates: any) {
+  const res = await fetch(`${API_BASE_URL}/breaches/${breachId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updates),
+  });
+  if (!res.ok) throw new Error("Failed to update breach");
+  return res.json();
+}
+
+export async function chatWithContract(contractId: string, question: string, breachId?: string) {
+  const res = await fetch(`${API_BASE_URL}/contracts/${contractId}/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question, breach_id: breachId }),
+  });
+  if (!res.ok) throw new Error("Failed to chat with contract");
+  return res.json();
+}
+

@@ -6,6 +6,8 @@ from datetime import datetime
 
 from app.db.mongodb import MongoDB
 from app.config import settings
+from app.agents.breach_engine import BreachEngine
+from app.agents.chat_agent import ChatAgent
 
 app = FastAPI(title="Contract Guardian API")
 
@@ -62,7 +64,7 @@ async def get_breaches(contract_id: str):
 
 @app.get("/contracts/{contract_id}/performance")
 async def get_performance(contract_id: str):
-    actuals = await MongoDB.get_latest_actuals(contract_id)
+    actuals = await MongoDB.get_all_actuals(contract_id)
     for a in actuals:
         if "_id" in a:
             a["_id"] = str(a["_id"])
@@ -83,6 +85,32 @@ async def evaluate_contract(contract_id: str):
             r["_id"] = str(r["_id"])
         clean.append(r)
     return {"status": "completed", "flags_count": len(clean), "breaches": sum(1 for r in clean if r.get("is_breach")), "flags": clean}
+    
+@app.put("/breaches/{breach_id}")
+async def update_breach(breach_id: str, updates: Dict[str, Any]):
+    """Update breach status or notes."""
+    allowed_fields = ["status", "notes", "remediation", "remediation_sla"]
+    filtered_updates = {k: v for k, v in updates.items() if k in allowed_fields}
+    
+    if not filtered_updates:
+        raise HTTPException(status_code=400, detail="No valid fields to update")
+        
+    success = await MongoDB.update_breach(breach_id, filtered_updates)
+    if not success:
+        raise HTTPException(status_code=404, detail="Breach not found")
+        
+    return {"status": "success", "updated_fields": list(filtered_updates.keys())}
+
+@app.post("/contracts/{contract_id}/chat")
+async def chat_with_contract(contract_id: str, payload: dict):
+    question = payload.get("question")
+    breach_id = payload.get("breach_id")
+    if not question:
+        raise HTTPException(status_code=400, detail="Question is required")
+    
+    agent = ChatAgent(contract_id)
+    response = await agent.answer_question(question, breach_id)
+    return response
 
 @app.get("/health")
 async def health_check():

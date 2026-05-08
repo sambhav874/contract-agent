@@ -1,0 +1,26 @@
+[
+  {
+    "kpi_id": "kpi_w1",
+    "value": 98.5,
+    "unit": "%",
+    "source": "wms_chicago"
+  },
+  {
+    "kpi_id": "kpi_w2_p1",
+    "value": 4.5,
+    "unit": "hours",
+    "source": "wms_memphis"
+  },
+  {
+    "kpi_id": "kpi_w3",
+    "value": 0.08,
+    "unit": "%",
+    "source": "quality_control"
+  },
+  {
+    "kpi_id": "kpi_w4",
+    "value": 9.2,
+    "unit": "hours",
+    "source": "receiving_dock"
+  }
+]

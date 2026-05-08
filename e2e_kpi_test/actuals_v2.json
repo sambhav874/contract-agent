@@ -1,0 +1,86 @@
+[
+  {
+    "kpi_id": "at_otd",
+    "value": 97.2,
+    "unit": "%",
+    "source": "test",
+    "description": "Air Freight On-Time Delivery - Slight Breach"
+  },
+  {
+    "kpi_id": "of_lta",
+    "value": 93.5,
+    "unit": "%",
+    "source": "test",
+    "description": "Ocean Freight Lead Time Adherence - On Track"
+  },
+  {
+    "kpi_id": "rt_pua",
+    "value": 98.1,
+    "unit": "%",
+    "source": "test",
+    "description": "Road Transport Pick-up Accuracy - Slight Breach"
+  },
+  {
+    "kpi_id": "fca",
+    "value": 99.7,
+    "unit": "%",
+    "source": "test",
+    "description": "Freight Cost Accuracy - On Track"
+  },
+  {
+    "kpi_id": "inv_acc",
+    "value": 98.8,
+    "unit": "%",
+    "source": "test",
+    "description": "Inventory Accuracy - Breach (Target 99.9%)"
+  },
+  {
+    "kpi_id": "of_ct",
+    "value": 5.2,
+    "unit": "hours",
+    "source": "test",
+    "description": "Order Fulfillment Cycle Time - Breach (Target 4h)"
+  },
+  {
+    "kpi_id": "wdr",
+    "value": 0.03,
+    "unit": "%",
+    "source": "test",
+    "description": "Warehouse Damage Rate - On Track"
+  },
+  {
+    "kpi_id": "dts",
+    "value": 7.5,
+    "unit": "hours",
+    "source": "test",
+    "description": "Dock-to-Stock Time - On Track"
+  },
+  {
+    "kpi_id": "cea",
+    "value": 99.9,
+    "unit": "%",
+    "source": "test",
+    "description": "Customs Entry Accuracy - On Track"
+  },
+  {
+    "kpi_id": "tdt",
+    "value": 94.2,
+    "unit": "%",
+    "source": "test",
+    "description": "Tracking Data Timeliness - Breach (Target 99.0%)"
+  },
+  {
+    "kpi_id": "irt",
+    "value": 1.8,
+    "unit": "hours",
+    "source": "test",
+    "description": "Issue Resolution Time - On Track"
+  },
+  {
+    "kpi_id": "spu",
+    "value": 82.0,
+    "unit": "%",
+    "source": "test",
+    "description": "Sustainable Packaging Usage - Slight Breach (Target 85%)"
+  }
+]

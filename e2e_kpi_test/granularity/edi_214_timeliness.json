@@ -1,0 +1,6 @@
+{
+  "value": 14.5,
+  "unit": "minutes",
+  "source": "edi_gateway",
+  "kpi_id": "EDI_214_TIMELINESS"
+}

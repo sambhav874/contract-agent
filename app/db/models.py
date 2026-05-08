@@ -264,5 +264,8 @@ class BreachResult(BaseModel):
     penalty_amount: float = 0.0
     remediation: str | None = None
     remediation_sla: str | None = None
+    sample_count: int = 1
+    status: str = "Open"  # Open, In Progress, Resolved, Waived
+    notes: str | None = None
     timestamp: str = Field(default_factory=lambda: datetime.now().isoformat())
 

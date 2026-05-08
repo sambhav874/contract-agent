@@ -100,14 +100,17 @@ def hierarchical_chunk(
                 section=section,
                 target_max=meso_tokens[1],
             )
-            for m in meso_parts:
+            for i, m in enumerate(meso_parts):
                 m.parent_chunk_id = main_chunk.chunk_id
+                # Link siblings
+                if i > 0:
+                    m.parent_chunk_id = main_chunk.chunk_id
                 main_chunk.child_chunk_ids.append(m.chunk_id)
                 chunks.append(m)
 
         # Create micro chunks for all sections
         section_text = text[section.char_start:section.char_end]
-        micro_chunks = create_micro_chunks(
+        micros = create_micro_chunks(
             text=text,
             contract_id=contract_id,
             char_start=section.char_start,
@@ -115,7 +118,10 @@ def hierarchical_chunk(
             target_min=micro_tokens[0],
             target_max=micro_tokens[1],
         )
-        chunks.extend(micro_chunks)
+        # Link each micro to the nearest meso (or macro if no meso)
+        for mc in micros:
+            mc.parent_chunk_id = main_chunk.chunk_id
+        chunks.extend(micros)
 
     return chunks
 
@@ -161,40 +167,53 @@ def split_section_to_meso(
                 )
                 chunks.append(chunk)
     else:
-        # Fall back to sentence-based splitting
-        sentences = re.split(r"(?<=[.!?])\s+", section_text)
+        # Fall back to sentence-based splitting with sliding-window overlap
+        sentences_raw = re.split(r"(?<=[.!?])\s+", section_text)
+        # dedupe if split produced empty strings
+        sentences = [s for s in sentences_raw if s.strip()]
         current_chunk: list[str] = []
         current_tokens = 0
+        full_text_sentences: list[str] = []  # track sentences in current window for overlap
 
         for sentence in sentences:
             sentence_tokens = count_tokens(sentence)
 
             if current_tokens + sentence_tokens > target_max and current_chunk:
-                chunk_text = " ".join(current_chunk)
+                # ── Flush current chunk ─────────────────────────────────────
+                start_char = section_text.find(full_text_sentences[0])
+                end_char = section_text.find(full_text_sentences[-1]) + len(full_text_sentences[-1])
                 chunk = create_chunk(
                     text=text,
                     contract_id=contract_id,
                     level="meso",
-                    char_start=section.char_start,
-                    char_end=section.char_start + len(chunk_text),
+                    char_start=section.char_start + start_char,
+                    char_end=section.char_start + end_char,
                     title=f"{section.title} (part)",
                     parent_id=section.section_id,
                 )
                 chunks.append(chunk)
-                current_chunk = [sentence]
-                current_tokens = sentence_tokens
+
+                # ── Sliding window: keep last N sentences as overlap ───────
+                OVERLAP_SENTENCES = 2
+                overlap = current_chunk[-OVERLAP_SENTENCES:] if len(current_chunk) > OVERLAP_SENTENCES else current_chunk[:]
+                current_chunk = list(overlap) + [sentence]
+                full_text_sentences = current_chunk[:]
+                current_tokens = sum(count_tokens(s) for s in current_chunk)
             else:
                 current_chunk.append(sentence)
+                full_text_sentences.append(sentence)
                 current_tokens += sentence_tokens
 
         if current_chunk:
             chunk_text = " ".join(current_chunk)
+            start_char = section_text.find(full_text_sentences[0])
+            end_char = section_text.find(full_text_sentences[-1]) + len(full_text_sentences[-1])
             chunk = create_chunk(
                 text=text,
                 contract_id=contract_id,
                 level="meso",
-                char_start=section.char_start,
-                char_end=section.char_end,
+                char_start=section.char_start + start_char,
+                char_end=section.char_start + end_char,
                 title=f"{section.title} (continued)",
                 parent_id=section.section_id,
             )
