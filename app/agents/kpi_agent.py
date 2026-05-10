@@ -100,6 +100,6 @@ class KPIAgent(BaseAgent):
             user_query=user_query or "Extract all KPIs, payment terms, milestones, and deadlines",
             query_plan=query_plan,
             max_rounds=query_plan.max_retrieval_rounds,
-            top_k=60,
+            top_k=80, # Increased for exhaustive coverage
         )
         return _apply_confidence_calibration(raw)

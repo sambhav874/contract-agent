@@ -50,3 +50,25 @@ export async function chatWithContract(contractId: string, question: string, bre
   return res.json();
 }
 
+export async function fetchAvailableContracts() {
+  const res = await fetch(`${API_BASE_URL}/available-contracts`);
+  if (!res.ok) throw new Error("Failed to fetch available contracts");
+  return res.json();
+}
+
+export async function ingestContract(filename: string) {
+  const res = await fetch(`${API_BASE_URL}/contracts/ingest`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ filename }),
+  });
+  if (!res.ok) throw new Error("Failed to ingest contract");
+  return res.json();
+}
+
+export async function extractKPIs(contractId: string) {
+  const res = await fetch(`${API_BASE_URL}/contracts/${contractId}/extract-kpis`, { method: "POST" });
+  if (!res.ok) throw new Error("Failed to extract KPIs");
+  return res.json();
+}
+

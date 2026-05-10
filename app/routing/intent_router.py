@@ -37,7 +37,7 @@ _INTENT_TAGS: dict[str, list[str]] = {
 
 _INTENT_LEVELS: dict[str, list[str]] = {
     "risk":        ["meso", "macro"],
-    "kpi":         ["micro", "meso"],
+    "kpi":         ["micro", "meso", "macro"],
     "clause":      ["meso"],
     "obligations": ["meso", "micro"],
     "summary":     ["macro"],

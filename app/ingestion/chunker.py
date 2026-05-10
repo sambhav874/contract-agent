@@ -298,6 +298,8 @@ def create_micro_chunks(
         (r"\d+\.?\d*\s*(?:hours?|minutes?|seconds?)", "time"),
     ]
 
+    seen_ranges: set[tuple[int, int]] = set()
+
     for pattern, value_type in value_patterns:
         matches = list(re.finditer(pattern, section_text, re.IGNORECASE))
 
@@ -307,21 +309,38 @@ def create_micro_chunks(
 
             # Find context around the value (sentence boundaries)
             context_start = max(0, section_text.rfind('.', 0, start))
-            if context_start == 0 and start > 50:
-                context_start = max(0, start - 80)
+            if context_start == 0 and start > 100:
+                context_start = max(0, start - 120) # More context
             elif context_start > 0:
                 context_start += 1  # Skip the period
 
             context_end = section_text.find('.', end)
             if context_end == -1:
-                context_end = min(len(section_text), end + 80)
+                context_end = min(len(section_text), end + 120)
             else:
                 context_end = min(len(section_text), context_end + 1)
+
+            # Check for near-exact duplicates
+            range_key = (context_start, context_end)
+            is_duplicate = False
+            for s, e in seen_ranges:
+                # If 80% overlap, skip it
+                overlap = min(e, context_end) - max(s, context_start)
+                union = max(e, context_end) - min(s, context_start)
+                if overlap / union > 0.8:
+                    is_duplicate = True
+                    break
+            
+            if is_duplicate:
+                continue
+                
+            seen_ranges.add(range_key)
 
             micro_text = section_text[context_start:context_end].strip()
             token_count = count_tokens(micro_text)
 
-            if 10 <= token_count <= 200:  # Reasonable micro chunk
+            # Require at least 25 tokens of context to be meaningful
+            if 25 <= token_count <= 400:  
                 chunk = ChunkDocument(
                     chunk_id=f"{contract_id}_micro_{char_start}_{start}",
                     contract_id=contract_id,

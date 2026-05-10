@@ -112,6 +112,94 @@ async def chat_with_contract(contract_id: str, payload: dict):
     response = await agent.answer_question(question, breach_id)
     return response
 
+@app.get("/available-contracts")
+async def list_available_contracts():
+    """List local .md and .pdf files available for ingestion."""
+    import os
+    fixtures_dir = os.path.join(os.getcwd(), "tests", "fixtures")
+    if not os.path.exists(fixtures_dir):
+        return []
+    
+    files = []
+    for f in os.listdir(fixtures_dir):
+        if f.endswith(".md") or f.endswith(".pdf"):
+            stats = os.stat(os.path.join(fixtures_dir, f))
+            files.append({
+                "filename": f,
+                "path": os.path.join("tests", "fixtures", f),
+                "size": stats.st_size,
+                "modified": datetime.fromtimestamp(stats.st_mtime).isoformat()
+            })
+    return files
+
+@app.post("/contracts/ingest")
+async def ingest_contract(payload: dict):
+    """Ingest a local file into MongoDB."""
+    from app.ingestion.parser import parse_contract
+    from app.ingestion.chunker import hierarchical_chunk
+    from app.ingestion.embedder import get_embedding_service
+    import os
+    
+    filename = payload.get("filename")
+    if not filename:
+        raise HTTPException(status_code=400, detail="Filename is required")
+    
+    file_path = os.path.join(os.getcwd(), "tests", "fixtures", filename)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail=f"File {filename} not found")
+
+    # 1. Parse
+    contract_metadata, structural_map = await parse_contract(file_path, name=filename)
+    
+    # 2. Read text and chunk
+    with open(file_path, "r") as f:
+        text = f.read()
+    chunks = hierarchical_chunk(text, contract_metadata.contract_id, structural_map)
+    
+    # 3. Embed
+    embedder = get_embedding_service()
+    embedded_chunks = await embedder.embed_chunks(chunks)
+    
+    # 4. Save
+    await MongoDB.insert_contract(contract_metadata)
+    await MongoDB.insert_chunks(embedded_chunks)
+    
+    return {
+        "status": "success",
+        "contract_id": contract_metadata.contract_id,
+        "name": contract_metadata.name,
+        "chunks_count": len(chunks)
+    }
+
+@app.post("/contracts/{contract_id}/extract-kpis")
+async def extract_kpis(contract_id: str):
+    """Run agentic KPI extraction and save results."""
+    from app.agents.kpi_agent import KPIAgent
+    from app.routing.intent_router import route_intent
+    from app.db.models import StructuralMap
+    
+    # Get metadata for structural map
+    metadata = await MongoDB.get_contract(contract_id)
+    s_map = None
+    if metadata and metadata.get("structural_map"):
+        s_map = StructuralMap(**metadata["structural_map"])
+    
+    # Route intent to get a proper structural-map-aware plan
+    plan = await route_intent("kpi", structural_map=s_map)
+    
+    agent = KPIAgent()
+    result = await agent.analyze(plan, contract_id, "")
+    
+    # Save to DB
+    kpis_data = [k.model_dump() for k in result.kpis]
+    await MongoDB.upsert_kpis(contract_id, kpis_data)
+    
+    return {
+        "status": "success",
+        "kpis_count": len(kpis_data),
+        "kpis": kpis_data
+    }
+
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
