@@ -4,12 +4,14 @@ import { useState, useEffect, useMemo } from "react";
 import {
   ShieldCheck, AlertTriangle, CheckCircle2, ChevronDown, ArrowLeft,
   RefreshCw, Sparkles, Server, DollarSign, AlertCircle, BarChart3,
-  Clock, FileText, Activity, Bell, Database, Layout, Terminal, Cpu, Lock, Search, ArrowRight, ChevronRight, Filter, Download, Calendar, Layers, Zap
+  Clock, FileText, Activity, Bell, Database, Layout, Terminal, Cpu, Lock, Search, ArrowRight, ChevronRight, Filter, Download, Calendar, Layers, Zap,
+  Mail, ExternalLink, MailWarning, Plus, List, Upload
 } from "lucide-react";
 import { 
   fetchContracts, fetchKPIs, fetchBreaches, fetchPerformance, 
   evaluateContract, updateBreach, chatWithContract,
-  fetchAvailableContracts, ingestContract, extractKPIs
+  fetchAvailableContracts, ingestContract, extractKPIs,
+  getKpiTimeSeries, generateBreachEmail, sendBreachEmail, fetchPortfolioSummary, uploadActualsCsv
 } from "@/lib/api";
 import { MessageSquare, Send, X, Bot, Quote } from "lucide-react";
 import {
@@ -62,7 +64,16 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [expandedFlag, setExpandedFlag] = useState<string | null>(null);
   const [expandedKpi, setExpandedKpi] = useState<string | null>(null);
-  const [tab, setTab] = useState<"kpis" | "flags">("kpis");
+  const [tab, setTab] = useState<"kpis" | "flags" | "portfolio" | "actuals">("kpis");
+  
+  // Phase 2 State
+  const [portfolioData, setPortfolioData] = useState<any>(null);
+  const [portfolioLoading, setPortfolioLoading] = useState(false);
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [isGeneratingEmail, setIsGeneratingEmail] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [emailForm, setEmailForm] = useState({ to: "", subject: "", body: "", breachId: "" });
+  const [kpiTimeSeries, setKpiTimeSeries] = useState<Record<string, any>>({});
   const [evaluating, setEvaluating] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
@@ -108,6 +119,146 @@ export default function Dashboard() {
     } catch (e) { console.error(e); }
   }
 
+  // Phase 2 Handlers
+  async function handleExpandKpi(kpiId: string) {
+    const isOpening = expandedKpi !== kpiId;
+    setExpandedKpi(isOpening ? kpiId : null);
+    
+    if (isOpening && !kpiTimeSeries[kpiId]) {
+      try {
+        const data = await getKpiTimeSeries(selectedContract, kpiId);
+        setKpiTimeSeries(prev => ({ ...prev, [kpiId]: data }));
+      } catch (e) { console.error("Failed to load KPI timeseries", e); }
+    }
+  }
+
+  async function handleOpenEmailModal(breachId: string) {
+    setEmailModalOpen(true);
+    setIsGeneratingEmail(true);
+    setEmailForm({ to: "", subject: "Generating...", body: "Please wait...", breachId });
+    try {
+      const data = await generateBreachEmail(breachId);
+      setEmailForm({
+        to: data.suggested_to || "",
+        subject: data.subject,
+        body: data.body,
+        breachId: breachId
+      });
+    } catch (e) {
+      console.error(e);
+      setEmailForm(prev => ({ ...prev, subject: "Error", body: "Failed to generate email template." }));
+    } finally {
+      setIsGeneratingEmail(false);
+    }
+  }
+
+  async function handleSendEmail() {
+    setIsSendingEmail(true);
+    try {
+      await sendBreachEmail(emailForm.breachId, emailForm);
+      setEmailModalOpen(false);
+      // Optional: Add a toast notification here
+      alert("Email alert sent successfully.");
+    } catch (e) {
+      console.error(e);
+      alert("Failed to send email.");
+    } finally {
+      setIsSendingEmail(false);
+    }
+  }
+
+  async function loadPortfolio() {
+    setTab("portfolio");
+    if (!portfolioData) {
+      setPortfolioLoading(true);
+      try {
+        const data = await fetchPortfolioSummary();
+        const mappedData = {
+          total_contracts: data.summary.total_contracts,
+          total_kpis: data.contracts.reduce((acc: any, c: any) => acc + c.total_kpis, 0),
+          total_breaches: data.summary.total_active_breaches,
+          total_exposure: data.summary.total_penalty_exposure || 0,
+          supplier_scores: data.contracts.map((c: any) => ({
+            contract_id: c.contract_id,
+            total_kpis: c.total_kpis,
+            health_score: c.health_score,
+            exposure: c.total_penalty_exposure || 0
+          }))
+        };
+        setPortfolioData(mappedData);
+      } catch (e) { console.error(e); }
+      finally { setPortfolioLoading(false); }
+    }
+  }
+
+  async function handleUploadActuals(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file || !selectedContract) return;
+
+    setEvaluating(true); // Reuse evaluating state for loading
+    try {
+      await uploadActualsCsv(selectedContract, file);
+      // Refresh data
+      const [p, b] = await Promise.all([
+        fetchPerformance(selectedContract),
+        fetchBreaches(selectedContract)
+      ]);
+      setActuals(p);
+      setBreaches(b);
+      // Optional: alert success
+    } catch (e) {
+      console.error("Upload failed", e);
+    } finally {
+      setEvaluating(false);
+      // Reset input
+      event.target.value = '';
+    }
+  }
+
+  function handleExportCsv() {
+    // Client-side CSV generation
+    if (!kpis.length) return;
+    const headers = ["KPI ID", "Name", "Type", "Operator", "Threshold", "Unit", "Penalty", "Party", "Remediation", "SLA", "Status"];
+    const rows = kpis.map(k => {
+      const isBreach = breaches.some(b => b.kpi_id === k.kpi_id && b.is_breach);
+      const escape = (val: any) => `"${String(val || "").replace(/"/g, '""')}"`;
+      return [
+        k.kpi_id, 
+        escape(k.name), 
+        escape(k.kpi_type), 
+        escape(k.operator), 
+        k.value_min ?? "", 
+        escape(k.unit),
+        k.consequence_value || "", 
+        escape(k.party), 
+        escape(k.remediation), 
+        escape(k.remediation_sla),
+        isBreach ? "BREACH" : "OK"
+      ];
+    });
+    const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `compliance_report_${selectedContract}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  function handleExportJson() {
+    const dataStr = JSON.stringify({ kpis, breaches, actuals }, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `compliance_data_${selectedContract}.json`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
   async function handleChat(question: string, breachId?: string) {
     if (!question.trim()) return;
     if (!selectedContract) return;
@@ -122,34 +273,40 @@ export default function Dashboard() {
       
       let answerText = result.answer;
       let artifact = null;
+      const responseMode = result.mode || "TEXT_ONLY";
       
-      const artifactRegex = /```(?:html|svg|xml)?\s*([\s\S]*?)\s*```/i;
-      const match = artifactRegex.exec(answerText);
-      
-      if (match && (match[1].includes('<svg') || match[1].includes('<div'))) {
-         artifact = {
-            type: match[1].includes('<svg') ? 'svg' : 'html',
-            content: match[1]
-         };
-         answerText = answerText.replace(match[0], '').trim();
-         setActiveArtifact(artifact);
-      } else {
-         const rawSvgMatch = answerText.match(/<svg[\s\S]*?<\/svg>/i);
-         if (rawSvgMatch) {
+      // Only try to extract artifacts if the backend signaled DATA_VIZ or DIAGRAM mode
+      if (responseMode !== "TEXT_ONLY") {
+        // Multi-block aware: handles HTML with <script> tags that contain backticks
+        // Try fenced code block first (```html ... ``` or ```svg ... ```)
+        const fencedRegex = /```(?:html|svg|xml)\s*([\s\S]*?)```/i;
+        const fencedMatch = fencedRegex.exec(answerText);
+        
+        if (fencedMatch && (fencedMatch[1].includes('<svg') || fencedMatch[1].includes('<div') || fencedMatch[1].includes('<link') || fencedMatch[1].includes('<style'))) {
+          artifact = {
+            type: fencedMatch[1].includes('<svg') ? 'svg' : 'html',
+            content: fencedMatch[1].trim()
+          };
+          answerText = answerText.replace(fencedMatch[0], '').trim();
+        } else {
+          // Fallback: raw SVG detection
+          const rawSvgMatch = answerText.match(/<svg[\s\S]*?<\/svg>/i);
+          if (rawSvgMatch) {
             artifact = { type: 'svg', content: rawSvgMatch[0] };
             answerText = answerText.replace(rawSvgMatch[0], '').trim();
-            setActiveArtifact(artifact);
-         } else {
-            const rawHtmlMatch = answerText.match(/<div[\s\S]*?<\/div>/i);
+          } else {
+            // Fallback: raw HTML block detection (greedy — from first <link>/<style>/<div> to last </script>/<div>)
+            const rawHtmlMatch = answerText.match(/(<(?:link|style|div)[\s\S]*(?:<\/script>|<\/div>))/i);
             if (rawHtmlMatch) {
-               artifact = { type: 'html', content: rawHtmlMatch[0] };
-               answerText = answerText.replace(rawHtmlMatch[0], '').trim();
-               setActiveArtifact(artifact);
+              artifact = { type: 'html', content: rawHtmlMatch[0] };
+              answerText = answerText.replace(rawHtmlMatch[0], '').trim();
             }
-         }
+          }
+        }
       }
 
-      setChatMessages(prev => [...prev, { role: "assistant", content: answerText, citations: result.citations, artifact }]);
+      // Don't auto-open artifact overlay — let user click the "View Component" button
+      setChatMessages(prev => [...prev, { role: "assistant", content: answerText, citations: result.citations, artifact, mode: responseMode }]);
     } catch (e) {
       setChatMessages(prev => [...prev, { role: "assistant", content: "Sorry, I encountered an error. Please try again." }]);
     } finally {
@@ -647,9 +804,34 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <div className="relative">
+              <input 
+                type="file" 
+                id="actuals-upload" 
+                className="hidden" 
+                accept=".csv"
+                onChange={handleUploadActuals}
+              />
+              <button 
+                onClick={() => document.getElementById('actuals-upload')?.click()}
+                disabled={evaluating}
+                className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md text-gray-500 hover:text-gray-800 bg-white border border-gray-200 transition-colors shadow-sm"
+              >
+                <Upload className="h-3.5 w-3.5" /> Upload Actuals
+              </button>
+            </div>
             <span className="flex items-center gap-1.5 text-xs font-medium text-[#0084C7] bg-blue-50 border border-blue-100 px-3 py-1.5 rounded-full">
               <Sparkles className="h-3 w-3" /> AI-Powered
             </span>
+            <div className="relative group">
+              <button className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md text-gray-500 hover:text-gray-800 bg-white border border-gray-200 transition-colors shadow-sm">
+                <Download className="h-3.5 w-3.5" /> Export <ChevronDown className="h-3 w-3 opacity-50" />
+              </button>
+              <div className="absolute right-0 top-full mt-1 w-32 bg-white rounded-lg shadow-lg border border-gray-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 overflow-hidden">
+                <button onClick={handleExportCsv} className="w-full text-left px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50">CSV Report</button>
+                <button onClick={handleExportJson} className="w-full text-left px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50">Raw JSON</button>
+              </div>
+            </div>
             <button onClick={handleEvaluate} disabled={evaluating}
               className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-colors shadow-sm border ${
                 evaluating ? "bg-[#0084C7] text-white border-[#0084C7]" : "text-gray-500 hover:text-gray-800 bg-white border-gray-200"
@@ -853,11 +1035,17 @@ export default function Dashboard() {
         </div>
 
         <div className="flex gap-2">
-          <button onClick={() => setTab("kpis")} className={`px-4 py-1.5 rounded-lg border text-xs font-semibold transition-all ${tab === "kpis" ? "bg-[#0084C7] text-white border-[#0084C7]" : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"}`}>
-            KPI Registry ({kpis.length})
+          <button onClick={() => setTab("kpis")} className={`px-4 py-1.5 rounded-lg border text-xs font-semibold transition-all flex items-center gap-1.5 ${tab === "kpis" ? "bg-[#0084C7] text-white border-[#0084C7]" : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"}`}>
+            <List className="h-3.5 w-3.5" /> KPI Registry ({kpis.length})
           </button>
-          <button onClick={() => setTab("flags")} className={`px-4 py-1.5 rounded-lg border text-xs font-semibold transition-all ${tab === "flags" ? "bg-[#0084C7] text-white border-[#0084C7]" : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"}`}>
-            Compliance Flags ({flags.length})
+          <button onClick={() => setTab("flags")} className={`px-4 py-1.5 rounded-lg border text-xs font-semibold transition-all flex items-center gap-1.5 ${tab === "flags" ? "bg-[#0084C7] text-white border-[#0084C7]" : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"}`}>
+            <AlertTriangle className="h-3.5 w-3.5" /> Compliance Flags ({flags.length})
+          </button>
+          <button onClick={() => setTab("actuals")} className={`px-4 py-1.5 rounded-lg border text-xs font-semibold transition-all flex items-center gap-1.5 ${tab === "actuals" ? "bg-[#0084C7] text-white border-[#0084C7]" : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"}`}>
+            <Activity className="h-3.5 w-3.5" /> Performance Actuals ({actuals.length})
+          </button>
+          <button onClick={loadPortfolio} className={`px-4 py-1.5 rounded-lg border text-xs font-semibold transition-all flex items-center gap-1.5 ${tab === "portfolio" ? "bg-[#0084C7] text-white border-[#0084C7]" : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"}`}>
+            <Layers className="h-3.5 w-3.5" /> Portfolio View
           </button>
         </div>
 
@@ -897,7 +1085,7 @@ export default function Dashboard() {
                 return (
                   <div key={kpi.kpi_id}>
                     <div
-                      onClick={() => setExpandedKpi(isOpen ? null : kpi.kpi_id)}
+                      onClick={() => handleExpandKpi(kpi.kpi_id)}
                       className={`grid grid-cols-[1fr_90px_130px_100px_100px_140px_20px] gap-3 items-center px-5 py-3 hover:bg-gray-50 transition-colors cursor-pointer ${hasBreach ? "border-l-2 border-l-red-400" : ""}`}
                     >
                       <div className="min-w-0">
@@ -998,39 +1186,37 @@ export default function Dashboard() {
                             </div>
                           </div>
 
-                          {/* Performance History (The 14 records) */}
+                          {/* Performance History Chart */}
                           <div className="p-3 rounded-lg bg-white border border-gray-200">
-                            <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center justify-between mb-4">
                               <p className="text-[10px] font-bold uppercase text-gray-500">Historical Performance Logs</p>
                               <span className="text-[10px] font-medium text-[#0084C7] bg-blue-50 px-2 py-0.5 rounded-full">
-                                {actuals.filter(a => {
-                                  const normalize_id = (idx: any) => String(idx).toLowerCase().replace("-", "_");
-                                  return normalize_id(a.kpi_id) === normalize_id(kpi.kpi_id);
-                                }).length} records
+                                {kpiTimeSeries[kpi.kpi_id]?.data?.length || 0} records
                               </span>
                             </div>
-                            <div className="max-h-[150px] overflow-y-auto space-y-1.5 pr-1">
-                              {actuals.filter(a => {
-                                const normalize_id = (idx: any) => String(idx).toLowerCase().replace("-", "_");
-                                return normalize_id(a.kpi_id) === normalize_id(kpi.kpi_id);
-                              })
-                                .sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime())
-                                .map((record, i) => {
-                                  const is_on_track = kpi.operator === ">=" ? record.value >= (kpi.value_min || 0) : record.value <= (kpi.value_min || 100);
-                                  return (
-                                    <div key={i} className="flex items-center justify-between text-[11px] py-1 border-b border-gray-50 last:border-0">
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-gray-400 font-mono w-28">
-                                          {record.timestamp ? new Date(record.timestamp).toLocaleDateString(undefined, {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'}) : 'No Timestamp'}
-                                        </span>
-                                        <span className="text-gray-600 truncate max-w-[150px] italic">{record.source || 'Automated Feed'}</span>
-                                      </div>
-                                      <span className={`font-bold ${is_on_track ? 'text-green-600' : 'text-red-600'}`}>
-                                        {record.value} {record.unit}
-                                      </span>
-                                    </div>
-                                  );
-                                })}
+                            <div className="h-[200px] w-full">
+                              {!kpiTimeSeries[kpi.kpi_id] ? (
+                                <div className="h-full flex items-center justify-center">
+                                  <RefreshCw className="h-5 w-5 text-gray-300 animate-spin" />
+                                </div>
+                              ) : (
+                                <ResponsiveContainer width="100%" height="100%">
+                                  <ComposedChart data={kpiTimeSeries[kpi.kpi_id].data} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                    <XAxis dataKey="timestamp" tickFormatter={(t) => new Date(t).toLocaleDateString(undefined, {month:'short', day:'numeric'})} axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                                    <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                                    <Tooltip 
+                                      labelFormatter={(t) => new Date(t).toLocaleString()}
+                                      contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '11px', padding: '8px' }}
+                                    />
+                                    <Legend wrapperStyle={{ fontSize: '10px' }} />
+                                    <Line yAxisId="left" type="monotone" dataKey="value" name="Actual Performance" stroke="#0084C7" strokeWidth={2} dot={{ r: 3, fill: "#0084C7" }} activeDot={{ r: 5 }} />
+                                    {kpiTimeSeries[kpi.kpi_id].trend?.threshold && (
+                                      <Line yAxisId="left" type="step" dataKey={() => kpiTimeSeries[kpi.kpi_id].trend.threshold} name="Threshold" stroke="#ef4444" strokeWidth={1} strokeDasharray="5 5" dot={false} activeDot={false} />
+                                    )}
+                                  </ComposedChart>
+                                </ResponsiveContainer>
+                              )}
                             </div>
                           </div>
 
@@ -1205,13 +1391,22 @@ export default function Dashboard() {
                             </p>
                           </div>
 
-                          <button 
-                            onClick={() => handleChat(`Explain the penalty logic and any excusable delays for this ${flag.kpi_id} breach.`, flag.breach_id || flag._id)}
-                            className="w-full mt-2 flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold transition-all shadow-md active:scale-[0.98]"
-                          >
-                            <Bot className="h-3.5 w-3.5" />
-                            Ask AI to Analyze this Breach
-                          </button>
+                          <div className="grid grid-cols-2 gap-2 mt-2">
+                            <button 
+                              onClick={() => handleChat(`Explain the penalty logic and any excusable delays for this ${flag.kpi_id} breach.`, flag.breach_id || flag._id)}
+                              className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold transition-all shadow-md active:scale-[0.98]"
+                            >
+                              <Bot className="h-3.5 w-3.5" />
+                              Ask AI to Analyze
+                            </button>
+                            <button 
+                              onClick={() => handleOpenEmailModal(flag.breach_id || flag._id)}
+                              className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-[11px] font-bold transition-all shadow-sm active:scale-[0.98]"
+                            >
+                              <MailWarning className="h-3.5 w-3.5 text-amber-600" />
+                              Send Escalation Alert
+                            </button>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -1221,95 +1416,347 @@ export default function Dashboard() {
             </div>
           </div>
         )}
+
+        {/* ── Performance Actuals (Raw Data) ──────────────────────── */}
+        {tab === "actuals" && (
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-800">Performance Logs (Actuals)</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Ingested raw operational data used for compliance evaluation</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="flex items-center gap-1.5 text-[11px] text-[#0084C7] bg-blue-50 border border-blue-100 px-2.5 py-1 rounded-full">
+                  <Activity className="h-3 w-3" /> {actuals.length} Data Points
+                </span>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-100">
+                    <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-gray-500">Timestamp</th>
+                    <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-gray-500">KPI ID</th>
+                    <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-gray-500">Actual Value</th>
+                    <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-gray-500">Source</th>
+                    <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-gray-500">Context / Attributes</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {actuals.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-12 text-center text-sm text-gray-400 italic">No actuals data ingested for this contract.</td>
+                    </tr>
+                  ) : (
+                    actuals.map((a, i) => {
+                      const timestamp = a.timestamp || a.scheduled_departure || a.audit_date || a.date || a.month || "—";
+                      const dateStr = timestamp !== "—" ? new Date(timestamp).toLocaleString() : "—";
+                      
+                      // Extract non-standard fields for the "Context" column
+                      const standardKeys = ["timestamp", "kpi_id", "value", "unit", "source", "scheduled_departure", "audit_date", "date", "month", "_id", "contract_id"];
+                      const contextData = Object.entries(a)
+                        .filter(([key]) => !standardKeys.includes(key))
+                        .reduce((obj, [key, val]) => ({ ...obj, [key]: val }), {});
+
+                      return (
+                        <tr key={i} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-5 py-3 text-xs text-gray-600 font-mono">{dateStr}</td>
+                          <td className="px-5 py-3">
+                            <span className="text-[11px] font-bold text-[#0084C7] bg-blue-50 px-2 py-0.5 rounded border border-blue-100 uppercase tracking-tighter">
+                              {a.kpi_id || "—"}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3">
+                            <p className="text-sm font-bold text-gray-800">{a.value} <span className="text-[10px] font-normal text-gray-400 uppercase">{a.unit}</span></p>
+                          </td>
+                          <td className="px-5 py-3 text-xs text-gray-500 italic">{a.source || "—"}</td>
+                          <td className="px-5 py-3">
+                            <div className="flex flex-wrap gap-1.5">
+                              {Object.entries(contextData).map(([key, val]) => (
+                                <span key={key} className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                  <span className="font-bold opacity-60 capitalize">{key.replace(/_/g, ' ')}:</span>
+                                  <span>{String(val)}</span>
+                                </span>
+                              ))}
+                              {Object.keys(contextData).length === 0 && <span className="text-[10px] text-gray-300">No extra metadata</span>}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+
+        {tab === "portfolio" && (
+          <div className="space-y-4">
+            {portfolioLoading ? (
+              <div className="py-12 text-center text-sm text-gray-400"><RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2" />Loading portfolio...</div>
+            ) : portfolioData && (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                  <SummaryCard label="Total Contracts" value={portfolioData.total_contracts} color="text-[#0084C7]" bg="bg-blue-50" border="border-blue-200" icon={<FileText className="h-4 w-4 text-[#0084C7]" />} />
+                  <SummaryCard label="Total KPIs Tracked" value={portfolioData.total_kpis} color="text-indigo-700" bg="bg-indigo-50" border="border-indigo-200" icon={<Activity className="h-4 w-4 text-indigo-700" />} />
+                  <SummaryCard label="Active Breaches" value={portfolioData.total_breaches} color="text-red-700" bg="bg-red-50" border="border-red-200" icon={<AlertTriangle className="h-4 w-4 text-red-700" />} />
+                  <SummaryCard label="Total Exposure" value={`$${(portfolioData.total_exposure || 0).toLocaleString()}`} color="text-red-700" bg="bg-white" border="border-gray-200" icon={<DollarSign className="h-4 w-4 text-red-700" />} />
+                </div>
+                
+                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                  <div className="px-5 py-4 border-b border-gray-100">
+                    <h3 className="text-sm font-semibold text-gray-800">Supplier Health Scoring</h3>
+                    <p className="text-xs text-gray-400 mt-0.5">Contract performance benchmarking across the portfolio</p>
+                  </div>
+                  <div className="divide-y divide-gray-100">
+                    {portfolioData.supplier_scores.map((s: any, i: number) => (
+                      <div key={i} className="flex items-center justify-between px-5 py-3.5 hover:bg-gray-50">
+                        <div>
+                          <p className="text-sm font-semibold text-gray-800">{s.contract_id}</p>
+                          <p className="text-[10px] text-gray-400">Score based on {s.total_kpis} tracked KPIs</p>
+                        </div>
+                        <div className="flex items-center gap-6">
+                          <div className="text-right">
+                            <p className="text-[10px] font-bold text-gray-500 uppercase">Health Score</p>
+                            <p className={`text-lg font-black ${(s.health_score || 0) > 90 ? 'text-green-600' : (s.health_score || 0) > 70 ? 'text-amber-500' : 'text-red-600'}`}>{(s.health_score || 0).toFixed(1)}/100</p>
+                          </div>
+                          <div className="text-right min-w-[80px]">
+                            <p className="text-[10px] font-bold text-gray-500 uppercase">Exposure</p>
+                            <p className="text-sm font-bold text-red-600">${(s.exposure || 0).toLocaleString()}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
         </div>
       </div>
 
-      {/* Artifact Overlay */}
+      {/* Email Remediation Modal */}
+      {emailModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ animation: 'fadeIn 0.2s ease-out' }}>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => !isGeneratingEmail && !isSendingEmail && setEmailModalOpen(false)} />
+          <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col" style={{ animation: 'slideUp 0.3s cubic-bezier(0.16,1,0.3,1)' }}>
+            <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-amber-50/50">
+              <div className="flex items-center gap-2 text-amber-700">
+                <MailWarning className="h-5 w-5" />
+                <h3 className="text-sm font-bold">Automated Escalation Alert</h3>
+              </div>
+              <button disabled={isGeneratingEmail || isSendingEmail} onClick={() => setEmailModalOpen(false)} className="p-1 text-gray-400 hover:text-gray-600 rounded">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="p-5 space-y-4 bg-gray-50/50">
+              {isGeneratingEmail ? (
+                <div className="py-12 flex flex-col items-center justify-center text-gray-400">
+                  <RefreshCw className="h-6 w-6 animate-spin mb-3 text-amber-500" />
+                  <p className="text-sm">Synthesizing contract clauses into formal notification...</p>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">To</label>
+                    <input 
+                      type="text" 
+                      value={emailForm.to}
+                      onChange={(e) => setEmailForm(prev => ({...prev, to: e.target.value}))}
+                      className="w-full text-sm p-2 rounded border border-gray-200 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Subject</label>
+                    <input 
+                      type="text" 
+                      value={emailForm.subject}
+                      onChange={(e) => setEmailForm(prev => ({...prev, subject: e.target.value}))}
+                      className="w-full text-sm p-2 rounded border border-gray-200 font-semibold focus:border-amber-400 focus:ring-1 focus:ring-amber-400 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Message Body</label>
+                    <textarea 
+                      value={emailForm.body}
+                      onChange={(e) => setEmailForm(prev => ({...prev, body: e.target.value}))}
+                      className="w-full text-sm p-3 rounded border border-gray-200 h-64 font-mono leading-relaxed focus:border-amber-400 focus:ring-1 focus:ring-amber-400 outline-none resize-none"
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+            
+            <div className="p-4 border-t border-gray-100 bg-white flex justify-end gap-3">
+              <button 
+                onClick={() => setEmailModalOpen(false)} 
+                disabled={isGeneratingEmail || isSendingEmail}
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleSendEmail}
+                disabled={isGeneratingEmail || isSendingEmail || !emailForm.to || !emailForm.subject}
+                className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 transition-colors"
+              >
+                {isSendingEmail ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                {isSendingEmail ? "Sending..." : "Dispatch Alert"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Artifact Overlay — Premium Generative UI Viewer */}
       {activeArtifact && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 md:p-12 animate-in fade-in zoom-in-95 duration-300">
-          <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setActiveArtifact(null)} />
-          <div className="relative w-full max-w-5xl bg-white rounded-3xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col max-h-[90vh]">
-            {/* Artifact Header */}
-            <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-blue-50/50 backdrop-blur-md">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 md:p-8" style={{ animation: 'fadeIn 0.3s ease-out' }}>
+          <style>{`
+            @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+            @keyframes slideUp { from { opacity: 0; transform: translateY(16px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+          `}</style>
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-md" onClick={() => setActiveArtifact(null)} />
+          <div className="relative w-full max-w-6xl bg-white rounded-2xl shadow-[0_32px_64px_-16px_rgba(0,0,0,0.2)] border border-gray-200/80 overflow-hidden flex flex-col max-h-[92vh]" style={{ animation: 'slideUp 0.4s cubic-bezier(0.16,1,0.3,1)' }}>
+            {/* Header */}
+            <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-indigo-50/60 via-white to-white">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-200">
-                  <Sparkles className="h-6 w-6" />
+                <div className={`h-9 w-9 rounded-xl flex items-center justify-center text-white shadow-md ${
+                  activeArtifact.type === 'svg' 
+                    ? 'bg-gradient-to-br from-violet-500 to-indigo-600 shadow-indigo-200' 
+                    : 'bg-gradient-to-br from-blue-500 to-indigo-600 shadow-blue-200'
+                }`}>
+                  {activeArtifact.type === 'svg' ? <Activity className="h-5 w-5" /> : <BarChart3 className="h-5 w-5" />}
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-gray-800">
-                    {activeArtifact.type === 'svg' ? 'Compliance Diagram' : 'Audit Dashboard'}
+                  <h2 className="text-sm font-bold text-gray-800">
+                    {activeArtifact.type === 'svg' ? 'Compliance Diagram' : 'Data Visualization'}
                   </h2>
-                  <p className="text-[10px] text-blue-600 font-bold uppercase tracking-widest">Generative Insight Engine</p>
+                  <p className="text-[10px] text-indigo-500 font-semibold uppercase tracking-widest">Generated from real contract data</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
+                <button 
+                  onClick={() => {
+                    const blob = new Blob([activeArtifact.content], { type: 'text/html' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url; a.download = `artifact.${activeArtifact.type === 'svg' ? 'svg' : 'html'}`;
+                    a.click(); URL.revokeObjectURL(url);
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-400 hover:text-gray-600"
+                  title="Download"
+                >
+                  <Download className="h-4 w-4" />
+                </button>
                 <button 
                   onClick={() => setActiveArtifact(null)}
-                  className="p-2 hover:bg-gray-100 rounded-xl transition-colors text-gray-400 active:scale-90"
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-400 hover:text-gray-600"
                 >
-                  <X className="h-6 w-6" />
+                  <X className="h-5 w-5" />
                 </button>
               </div>
             </div>
 
-            {/* Artifact Content */}
-            <div className="flex-1 overflow-auto bg-gray-50/30 relative">
-              <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#94a3b8 1px, transparent 1px)', backgroundSize: '24px 24px' }}></div>
-              <div className="relative h-full flex flex-col">
+            {/* Content — Premium Iframe Sandbox */}
+            <div className="flex-1 overflow-auto bg-[#fafbfc] relative">
+              <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#64748b 0.5px, transparent 0.5px)', backgroundSize: '20px 20px' }} />
+              <div className="relative h-full">
                 <iframe 
                   srcDoc={
-                    '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' +
+                    '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+                    '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">' +
+                    '<style>' +
                     ':root {' +
+                    '  --bg-primary: #ffffff;' +
+                    '  --bg-secondary: #f8fafc;' +
+                    '  --bg-tertiary: #f1f5f9;' +
+                    '  --bg-card: rgba(255,255,255,0.85);' +
+                    '  --text-primary: #0f172a;' +
+                    '  --text-secondary: #475569;' +
+                    '  --text-tertiary: #94a3b8;' +
+                    '  --border-light: #f1f5f9;' +
+                    '  --border-default: #e2e8f0;' +
+                    '  --indigo-50: #eef2ff; --indigo-100: #e0e7ff; --indigo-400: #818cf8; --indigo-500: #6366f1; --indigo-600: #4f46e5;' +
+                    '  --emerald-50: #ecfdf5; --emerald-400: #34d399; --emerald-500: #10b981; --emerald-600: #059669;' +
+                    '  --amber-50: #fffbeb; --amber-400: #fbbf24; --amber-500: #f59e0b; --amber-600: #d97706;' +
+                    '  --rose-50: #fff1f2; --rose-400: #fb7185; --rose-500: #f43f5e; --rose-600: #e11d48;' +
+                    '  --sky-50: #f0f9ff; --sky-400: #38bdf8; --sky-500: #0ea5e9;' +
+                    '  --radius-sm: 6px; --radius-md: 10px; --radius-lg: 14px; --radius-xl: 20px;' +
+                    '  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);' +
+                    '  --shadow-md: 0 4px 12px rgba(0,0,0,0.06);' +
+                    '  --font-sans: Inter, system-ui, -apple-system, sans-serif;' +
+                    '  --font-mono: SF Mono, Fira Code, ui-monospace, monospace;' +
                     '  --color-background-primary: #ffffff;' +
                     '  --color-background-secondary: #f8fafc;' +
                     '  --color-background-tertiary: #f1f5f9;' +
-                    '  --color-text-primary: #1e293b;' +
+                    '  --color-text-primary: #0f172a;' +
                     '  --color-text-secondary: #475569;' +
-                    '  --color-text-tertiary: #64748b;' +
+                    '  --color-text-tertiary: #94a3b8;' +
                     '  --color-border-primary: #e2e8f0;' +
                     '  --color-border-secondary: #cbd5e1;' +
                     '  --color-border-tertiary: #f1f5f9;' +
-                    '  --font-sans: system-ui, -apple-system, sans-serif;' +
-                    '  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;' +
-                    '  --border-radius-md: 8px;' +
-                    '  --border-radius-lg: 12px;' +
+                    '  --border-radius-md: 10px;' +
+                    '  --border-radius-lg: 14px;' +
                     '}' +
-                    'body { ' +
-                    '  margin: 0; ' +
-                    '  padding: 3rem;' +
-                    '  font-family: var(--font-sans); ' +
-                    '  display: flex; ' +
-                    '  justify-content: center; ' +
-                    '  align-items: flex-start; ' +
-                    '  min-height: 100vh;' +
-                    '  background: transparent;' +
-                    '  color: var(--color-text-primary);' +
-                    '}' +
-                    '* { box-sizing: border-box; }' +
-                    'svg { max-width: 100%; height: auto; }' +
+                    '@keyframes fadeInUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }' +
+                    '@keyframes countUp { from { opacity:0; transform:scale(0.8); } to { opacity:1; transform:scale(1); } }' +
+                    '.animate-in { animation: fadeInUp 0.4s ease-out both; }' +
+                    '.stat-value { animation: countUp 0.5s cubic-bezier(0.16,1,0.3,1) both; }' +
+                    '.card { background:var(--bg-card); backdrop-filter:blur(12px); border:0.5px solid var(--border-default); border-radius:var(--radius-lg); box-shadow:var(--shadow-sm); padding:20px; transition:box-shadow 0.2s,transform 0.2s; }' +
+                    '.card:hover { box-shadow:var(--shadow-md); transform:translateY(-1px); }' +
+                    'body { margin:0; padding:2rem; font-family:var(--font-sans); display:flex; justify-content:center; align-items:flex-start; min-height:100vh; background:transparent; color:var(--text-primary); }' +
+                    '* { box-sizing:border-box; }' +
+                    'svg { max-width:100%; height:auto; }' +
                     '</style></head><body>' +
                     activeArtifact.content +
                     '<script>' +
                     'window.addEventListener("load", () => {' +
                     '  if (window.init) window.init();' +
                     '  if (typeof initFn === "function") initFn();' +
+                    '  // Auto-resize iframe to content height' +
+                    '  setTimeout(() => {' +
+                    '    const h = document.body.scrollHeight;' +
+                    '    window.parent.postMessage({ type:"artifact-resize", height: h }, "*");' +
+                    '  }, 500);' +
                     '});' +
                     '</script></body></html>'
                   }
-                  className="w-full h-full min-h-[600px] border-none bg-transparent"
-                  title="Artifact View"
+                  className="w-full border-none bg-transparent"
+                  style={{ minHeight: '650px' }}
+                  title="Generative UI Artifact"
+                  sandbox="allow-scripts allow-same-origin"
+                  onLoad={(e) => {
+                    // Listen for resize messages from the iframe
+                    const handler = (event: MessageEvent) => {
+                      if (event.data?.type === 'artifact-resize' && event.data.height) {
+                        (e.target as HTMLIFrameElement).style.height = Math.min(event.data.height + 40, 1200) + 'px';
+                      }
+                    };
+                    window.addEventListener('message', handler);
+                    // Cleanup on unmount
+                    return () => window.removeEventListener('message', handler);
+                  }}
                 />
               </div>
             </div>
             
-            {/* Artifact Footer */}
-            <div className="p-3 border-t border-gray-100 bg-white flex justify-end gap-2">
-               <button 
-                 onClick={() => setActiveArtifact(null)}
-                 className="px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-xl text-sm font-bold transition-all active:scale-95 border border-gray-200"
-               >
-                 Close Preview
-               </button>
+            {/* Footer */}
+            <div className="px-5 py-3 border-t border-gray-100 bg-white/80 backdrop-blur-sm flex items-center justify-between">
+              <div className="flex items-center gap-2 text-[10px] text-gray-400">
+                <Sparkles className="h-3 w-3" />
+                <span className="font-medium">Data sourced from MongoDB · Contract KPI Registry</span>
+              </div>
+              <button 
+                onClick={() => setActiveArtifact(null)}
+                className="px-4 py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-lg text-xs font-semibold transition-all active:scale-95 border border-gray-200"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
@@ -1399,19 +1846,26 @@ export default function Dashboard() {
                       {msg.artifact && (
                         <button 
                           onClick={() => setActiveArtifact(msg.artifact)}
-                          className="mt-3 w-full p-3 rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 flex items-center justify-between transition-colors group cursor-pointer text-left shadow-sm"
+                          className="mt-3 w-full p-3 rounded-xl border border-indigo-200/80 bg-gradient-to-r from-indigo-50/80 to-blue-50/50 hover:from-indigo-100 hover:to-blue-50 flex items-center justify-between transition-all group cursor-pointer text-left shadow-sm hover:shadow-md"
                         >
                           <div className="flex items-center gap-3">
-                            <div className="p-1.5 bg-blue-600 rounded-md text-white shadow-sm">
-                              {msg.artifact.type === 'svg' ? <Activity className="h-3.5 w-3.5" /> : <Database className="h-3.5 w-3.5" />}
+                            <div className={`p-2 rounded-lg text-white shadow-sm ${
+                              msg.artifact.type === 'svg' 
+                                ? 'bg-gradient-to-br from-violet-500 to-indigo-600' 
+                                : 'bg-gradient-to-br from-blue-500 to-indigo-600'
+                            }`}>
+                              {msg.artifact.type === 'svg' ? <Activity className="h-3.5 w-3.5" /> : <BarChart3 className="h-3.5 w-3.5" />}
                             </div>
-                            <span className="text-[11px] font-bold text-blue-800">
-                              View {msg.artifact.type === 'svg' ? 'Diagram' : 'UI Component'}
-                            </span>
+                            <div>
+                              <span className="text-[11px] font-bold text-gray-800 block">
+                                {msg.artifact.type === 'svg' ? 'Interactive Diagram' : 'Data Visualization'}
+                              </span>
+                              <span className="text-[9px] text-indigo-500 font-medium">Generated from real contract data</span>
+                            </div>
                           </div>
-                          <span className="text-[10px] font-bold text-blue-600 group-hover:translate-x-1 transition-transform">
-                            Open &rarr;
-                          </span>
+                          <div className="flex items-center gap-1 text-[10px] font-bold text-indigo-600 group-hover:translate-x-1 transition-transform">
+                            View <ArrowRight className="h-3 w-3" />
+                          </div>
                         </button>
                       )}
                     </>

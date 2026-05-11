@@ -72,3 +72,42 @@ export async function extractKPIs(contractId: string) {
   return res.json();
 }
 
+export async function getKpiTimeSeries(contractId: string, kpiId: string) {
+  const res = await fetch(`${API_BASE_URL}/contracts/${contractId}/kpis/${kpiId}/timeseries`);
+  if (!res.ok) throw new Error("Failed to fetch KPI time-series");
+  return res.json();
+}
+
+export async function generateBreachEmail(breachId: string) {
+  const res = await fetch(`${API_BASE_URL}/breaches/${breachId}/generate-email`, {
+    method: "POST"
+  });
+  if (!res.ok) throw new Error("Failed to generate breach email");
+  return res.json();
+}
+
+export async function sendBreachEmail(breachId: string, payload: { to: string; subject: string; body: string }) {
+  const res = await fetch(`${API_BASE_URL}/breaches/${breachId}/send-email`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error("Failed to send breach email");
+  return res.json();
+}
+
+export async function fetchPortfolioSummary() {
+  const res = await fetch(`${API_BASE_URL}/portfolio/summary`);
+  if (!res.ok) throw new Error("Failed to fetch portfolio summary");
+  return res.json();
+}
+export async function uploadActualsCsv(contractId: string, file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+  const res = await fetch(`${API_BASE_URL}/contracts/${contractId}/actuals/upload`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!res.ok) throw new Error("Failed to upload actuals CSV");
+  return res.json();
+}

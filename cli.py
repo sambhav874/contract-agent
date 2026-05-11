@@ -830,6 +830,23 @@ def ingest_actuals(contract_id: str, file: str | None = None, kpi_id: str | None
         await MongoDB.connect()
         actuals_to_insert = []
 
+        # Get existing KPIs for validation/mapping
+        kpis = await MongoDB.get_kpis(contract_id)
+        kpi_ids = {k["kpi_id"] for k in kpis}
+        # Map common patterns like "KPI-6" to the internal ID
+        pattern_map = {}
+        for k in kpis:
+            name = k.get("name", "")
+            # Try to extract "KPI-N" from name
+            import re
+            match = re.search(r"KPI-?(\d+)", name, re.I)
+            if match:
+                num = match.group(1)
+                pattern_map[f"kpi_{num}"] = k["kpi_id"]
+                pattern_map[f"kpi_{int(num):03d}"] = k["kpi_id"]
+                pattern_map[f"kpi_{num}_target"] = k["kpi_id"]
+                pattern_map[f"kpi_{int(num):03d}_target"] = k["kpi_id"]
+
         if file:
             path = Path(file)
             if not path.exists():
@@ -841,14 +858,35 @@ def ingest_actuals(contract_id: str, file: str | None = None, kpi_id: str | None
                     with open(path, "r") as f:
                         reader = csv.DictReader(f)
                         for row in reader:
+                            raw_id = row["kpi_id"]
+                            # Try mapping
+                            target_id = raw_id
+                            if raw_id not in kpi_ids:
+                                # Try pattern map (e.g. kpi_006_hot -> remove _hot suffix)
+                                base_id = re.sub(r"_[a-z]+$", "", raw_id.lower())
+                                if base_id in pattern_map:
+                                    target_id = pattern_map[base_id]
+                                elif raw_id.lower() in pattern_map:
+                                    target_id = pattern_map[raw_id.lower()]
+                                else:
+                                    # Try to find number in raw_id
+                                    num_match = re.search(r"(\d+)", raw_id)
+                                    if num_match:
+                                        num = num_match.group(1)
+                                        if f"kpi_{num}" in pattern_map:
+                                            target_id = pattern_map[f"kpi_{num}"]
+                            
+                            if target_id not in kpi_ids:
+                                console.print(f"[yellow]Warning: KPI ID '{raw_id}' not found in vault. Ingesting as-is.[/yellow]")
+
                             actuals_to_insert.append(OperationalActual(
                                 contract_id=contract_id,
-                                kpi_id=row["kpi_id"],
-                                value=float(row["value"]),
+                                kpi_id=target_id,
+                                value=float(row["value"].replace("%", "").strip()) if isinstance(row["value"], str) else row["value"],
                                 unit=row.get("unit", ""),
                                 timestamp=row.get("timestamp") or datetime.now().isoformat(),
                                 source=row.get("source") or source,
-                                metadata={"filename": path.name}
+                                metadata={"filename": path.name, "original_id": raw_id}
                             ))
                 elif path.suffix == ".json":
                     with open(path, "r") as f:

@@ -146,6 +146,7 @@ class KPIItem(BaseModel):
     remediation: str | None = Field(None, description="Required corrective action if breached")
     remediation_sla: str | None = Field(None, description="Timeline for completing remediation (e.g., '24 hours', '7 days')")
     confidence: float = Field(ge=0.0, le=1.0, description="Confidence score from 0.0 to 1.0. Use 0.8-0.9 for likely but partially detailed items.")
+    breach_email_template: str | None = Field(None, description="Pre-generated email template for breach notifications. Use placeholders: {{kpi_name}}, {{threshold}}, {{actual_value}}, {{unit}}, {{penalty_amount}}, {{remediation}}, {{remediation_sla}}, {{contract_name}}")
 
 
 
@@ -257,7 +258,7 @@ class BreachResult(BaseModel):
     contract_id: str
     kpi_id: str
     actual_value: float
-    threshold_value: float
+    threshold_value: float | None = None
     operator: str
     is_breach: bool
     penalty_triggered: str | None = None

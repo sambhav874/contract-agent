@@ -20,7 +20,7 @@ class BreachEngine:
     def calculate_penalty(cls, kpi: Dict[str, Any], actual_val: float) -> float:
         """Calculate penalty based on the deviation from threshold."""
         threshold = kpi.get("value_min", 0)
-        consequence_val = kpi.get("consequence_value", 0)
+        consequence_val = float(kpi.get("consequence_value") or 0.0)
         # Check both fields for penalty description
         penalty_desc = (str(kpi.get("consequence", "")) + " " + str(kpi.get("consequence_unit", ""))).lower()
         
@@ -43,9 +43,15 @@ class BreachEngine:
         threshold = kpi.get("value_min")
         actual_val = actual.get("value")
         
-        if op_str == "between":
+        if threshold is None and op_str != "between":
+            # If no threshold is defined, we can't breach it (or it's on track by default)
+            is_on_track = True
+        elif op_str == "between":
             val_max = kpi.get("value_max")
-            is_on_track = threshold <= actual_val <= val_max
+            if threshold is None or val_max is None:
+                is_on_track = True
+            else:
+                is_on_track = threshold <= actual_val <= val_max
         elif op_str in cls.OPERATORS:
             is_on_track = cls.OPERATORS[op_str](actual_val, threshold)
         else:

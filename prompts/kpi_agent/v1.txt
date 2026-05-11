@@ -40,7 +40,9 @@ To enable data-driven tracking, you MUST decompose qualitative strings into quan
 5. **`consequence_unit`**: The unit for the consequence (e.g., `USD`, `%`).
 6. **`remediation`**: Extract any specific corrective actions required if the KPI is breached (e.g., "Submit root cause analysis", "Refund 100% of fee").
 7. **`remediation_sla`**: The specific timeline or deadline to complete the remediation (e.g., "within 48 hours", "by next billing cycle").
-
+8. **`breach_email_template`**: Generate a professional email template to notify the counterparty of a breach.
+   - Use these EXACT placeholders: `{{kpi_name}}`, `{{threshold}}`, `{{actual_value}}`, `{{unit}}`, `{{penalty_amount}}`, `{{remediation}}`, `{{remediation_sla}}`, `{{contract_name}}`
+   - Structure: Professional greeting, clear statement of breach, threshold vs actual, resulting penalty (if any), required remediation action & deadline, professional closing.
 
 ---
 
