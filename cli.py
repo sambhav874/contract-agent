@@ -735,12 +735,31 @@ def check_breaches(contract_id: str):
             
         actuals = []
         for norm_id, data in actuals_by_kpi.items():
+            kpi = kpi_map.get(norm_id)
+            if not kpi: continue
+            
+            agg_type = kpi.get("aggregation_type", "avg")
             vals = [float(d.get("value", 0)) for d in data]
-            avg_val = sum(vals) / len(vals) if vals else 0
-            latest = sorted(data, key=lambda x: x.get("timestamp", ""), reverse=True)[0]
-            latest["value"] = round(avg_val, 2)
-            latest["sample_count"] = len(data)
-            actuals.append(latest)
+            
+            if agg_type == "sum":
+                final_val = sum(vals)
+            elif agg_type == "min":
+                final_val = min(vals) if vals else 0
+            elif agg_type == "max":
+                final_val = max(vals) if vals else 0
+            elif agg_type == "latest":
+                # Get the value of the record with the most recent timestamp
+                sorted_data = sorted(data, key=lambda x: x.get("timestamp", ""), reverse=True)
+                final_val = sorted_data[0].get("value", 0)
+            else: # avg
+                final_val = sum(vals) / len(vals) if vals else 0
+                
+            # Use the latest record as the base for metadata, but override the value
+            latest_record = sorted(data, key=lambda x: x.get("timestamp", ""), reverse=True)[0]
+            latest_record["value"] = round(float(final_val), 2)
+            latest_record["sample_count"] = len(data)
+            latest_record["agg_used"] = agg_type
+            actuals.append(latest_record)
         
         table = Table(title=f"Breach Report: {contract_id}", show_lines=True)
         table.add_column("KPI", style="cyan")
@@ -777,7 +796,7 @@ def check_breaches(contract_id: str):
             table.add_row(
                 kpi["name"],
                 f"{kpi['operator']} {kpi['value_min']} {kpi['unit']}",
-                f"{actual['value']} {actual['unit']} [dim](avg of {actual['sample_count']})[/dim]",
+                f"{actual['value']} {actual['unit']} [dim]({actual['agg_used']} of {actual['sample_count']})[/dim]",
                 status,
                 f"[bold red]${result.penalty_amount:,.2f}[/bold red]" if result.is_breach else "-",
                 remediation_info

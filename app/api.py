@@ -1,7 +1,9 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Dict, Any, Optional
 import asyncio
+import json
 from datetime import datetime
 
 from app.db.mongodb import MongoDB
@@ -105,33 +107,29 @@ async def update_breach(breach_id: str, updates: Dict[str, Any]):
 async def chat_with_contract(contract_id: str, payload: dict):
     question = payload.get("question")
     breach_id = payload.get("breach_id")
-    include_data = payload.get("include_data_context", True)
+    session_id = payload.get("session_id")   # multi-turn context key
     if not question:
         raise HTTPException(status_code=400, detail="Question is required")
     
-    # Pre-fetch structured data so the agent doesn't re-query
-    kpis, breaches, actuals = [], [], []
-    if include_data:
-        kpis = await MongoDB.get_kpis(contract_id)
-        breaches = await MongoDB.get_breaches(contract_id)
-        actuals = await MongoDB.get_all_actuals(contract_id)
-        # Clean ObjectIds for serialization
-        for k in kpis:
-            if "_id" in k: k["_id"] = str(k["_id"])
-        for b in breaches:
-            if "_id" in b: b["_id"] = str(b["_id"])
-        for a in actuals:
-            if "_id" in a: a["_id"] = str(a["_id"])
-    
     agent = ChatAgent(contract_id)
-    response = await agent.answer_question(
-        question,
-        context_breach_id=breach_id,
-        kpis=kpis,
-        breaches=breaches,
-        actuals=actuals,
-    )
-    return response
+    
+    async def event_generator():
+        async for chunk in agent.answer_question_stream(
+            question,
+            context_breach_id=breach_id,
+            session_id=session_id,
+        ):
+            yield f"data: {json.dumps(chunk)}\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+@app.delete("/chat-session/{session_id}")
+async def clear_chat_session(session_id: str):
+    """Clear a chat session's history so the user can start a fresh conversation."""
+    from app.agents.chat_agent import clear_session
+    clear_session(session_id)
+    return {"status": "cleared", "session_id": session_id}
 
 @app.get("/available-contracts")
 async def list_available_contracts():
@@ -280,6 +278,66 @@ async def upload_actuals_csv(contract_id: str, file: UploadFile = File(...)):
     return {"status": "success", "count": len(results), "filename": file.filename}
 
 
+# ── Rule-Based ETL & Staging ──────────────────────────────────────────
+
+@app.post("/contracts/{contract_id}/raw-actuals")
+async def ingest_raw_actuals(contract_id: str, payload: Dict[str, Any]):
+    """Ingest schema-agnostic raw data into staging."""
+    from app.db.models import RawActual
+    from uuid import uuid4
+    
+    # data can be single object or list
+    raw_data = payload.get("data")
+    if raw_data is None:
+        data_list = [payload]
+    elif isinstance(raw_data, list):
+        data_list = raw_data
+    else:
+        data_list = [raw_data]
+    source = payload.get("source", "generic_stream")
+    
+    results = []
+    for item in data_list:
+        raw = RawActual(
+            raw_id=str(uuid4()),
+            contract_id=contract_id,
+            data=item,
+            source=source,
+            status="pending"
+        )
+        await MongoDB.insert_raw_actual(raw.model_dump())
+        results.append(raw.raw_id)
+        
+    return {"status": "success", "ingested_count": len(results), "raw_ids": results}
+
+
+@app.post("/contracts/{contract_id}/mappings")
+async def create_mapping_rule(contract_id: str, payload: Dict[str, Any]):
+    """Configure a deterministic mapping rule for a data source."""
+    from app.db.models import MappingRule
+    from uuid import uuid4
+    
+    rule = MappingRule(
+        rule_id=str(uuid4()),
+        contract_id=contract_id,
+        source_match=payload.get("source_match"),
+        kpi_id=payload.get("kpi_id"),
+        field_mappings=payload.get("field_mappings", {})
+    )
+    
+    await MongoDB.upsert_mapping_rule(rule.model_dump())
+    return {"status": "success", "rule_id": rule.rule_id}
+
+
+@app.post("/contracts/{contract_id}/run-etl")
+async def run_etl_process(contract_id: str):
+    """Trigger the rule-based ETL process for a contract."""
+    from app.ingestion.etl_processor import ETLProcessor
+    
+    stats = await ETLProcessor.process_contract_actuals(contract_id)
+    return {"status": "completed", "stats": stats}
+
+
 # ── Per-KPI Time-Series ──────────────────────────────────────────────
 
 @app.get("/contracts/{contract_id}/kpis/{kpi_id}/timeseries")
@@ -316,19 +374,37 @@ async def get_kpi_timeseries(contract_id: str, kpi_id: str):
     if values:
         stats["min"] = round(min(values), 2)
         stats["max"] = round(max(values), 2)
+        stats["total"] = round(sum(values), 2)
         stats["avg"] = round(sum(values) / len(values), 2)
         stats["count"] = len(values)
         
-        # Compliance rate
-        if op == ">=":
-            compliant = sum(1 for v in values if v >= threshold)
-        elif op == "<=":
-            compliant = sum(1 for v in values if v <= threshold)
-        elif op == "==":
-            compliant = sum(1 for v in values if v == threshold)
+        # Determine primary metric based on aggregation_type
+        agg = kpi.get("aggregation_type", "avg")
+        stats["primary_metric"] = stats["total"] if agg == "sum" else stats["avg"]
+        stats["metric_label"] = "Total" if agg == "sum" else "Average"
+        
+        # Compliance rate calculation
+        agg = kpi.get("aggregation_type", "avg")
+        if agg == "sum":
+            # For sum KPIs, compliance is binary: is total >= threshold?
+            # Or percentage of progress toward goal
+            if op == ">=":
+                stats["compliance_rate"] = min(100.0, round((stats["total"] / threshold) * 100, 1)) if threshold > 0 else 100.0
+            elif op == "<=":
+                stats["compliance_rate"] = 100.0 if stats["total"] <= threshold else 0.0
+            else:
+                stats["compliance_rate"] = 100.0 if stats["total"] == threshold else 0.0
         else:
-            compliant = len(values)
-        stats["compliance_rate"] = round((compliant / len(values)) * 100, 1) if values else 0
+            # For avg/latest KPIs, compliance is percentage of compliant records
+            if op == ">=":
+                compliant = sum(1 for v in values if v >= threshold)
+            elif op == "<=":
+                compliant = sum(1 for v in values if v <= threshold)
+            elif op == "==":
+                compliant = sum(1 for v in values if v == threshold)
+            else:
+                compliant = len(values)
+            stats["compliance_rate"] = round((compliant / len(values)) * 100, 1) if values else 0
         
         # Trend direction: compare avg of last 5 vs previous 5
         if len(values) >= 4:
@@ -398,6 +474,14 @@ async def generate_breach_email(breach_id: str):
     kpi_name = kpi.get("name", breach.get("kpi_id", "Unknown KPI")) if kpi else breach.get("kpi_id", "Unknown KPI")
     template = (kpi.get("breach_email_template") or "") if kpi else ""
     
+    # Resolve currency symbol from contract metadata
+    currency_symbol = ""
+    if contract:
+        currency = (contract.get("currency") or "").upper()
+        # Map common ISO codes to symbols; fall back to the code itself
+        _CURRENCY_SYMBOLS = {"USD": "$", "EUR": "\u20ac", "GBP": "\u00a3", "INR": "\u20b9", "JPY": "\u00a5"}
+        currency_symbol = _CURRENCY_SYMBOLS.get(currency, currency + " " if currency else "$")
+
     if template:
         # Fill template placeholders
         body = template
@@ -405,7 +489,7 @@ async def generate_breach_email(breach_id: str):
         body = body.replace("{{threshold}}", f"{kpi.get('operator', '')} {kpi.get('value_min', '')} {kpi.get('unit', '')}")
         body = body.replace("{{actual_value}}", str(breach.get("actual_value", "")))
         body = body.replace("{{unit}}", kpi.get("unit", "") if kpi else "")
-        body = body.replace("{{penalty_amount}}", f"${breach.get('penalty_amount', 0):,.2f}")
+        body = body.replace("{{penalty_amount}}", f"{currency_symbol}{breach.get('penalty_amount', 0):,.2f}")
         body = body.replace("{{remediation}}", kpi.get("remediation", "Immediate corrective action required") if kpi else "Immediate corrective action required")
         body = body.replace("{{remediation_sla}}", kpi.get("remediation_sla", "As soon as possible") if kpi else "As soon as possible")
         body = body.replace("{{contract_name}}", contract_name)
@@ -423,7 +507,7 @@ BREACH DETAILS:
 - KPI: {kpi_name}
 - Contractual Threshold: {kpi.get('operator', '>=')} {kpi.get('value_min', 'N/A')} {kpi.get('unit', '')}
 - Actual Performance: {breach.get('actual_value', 'N/A')} {kpi.get('unit', '') if kpi else ''}
-- Penalty Exposure: ${penalty:,.2f}
+- Penalty Exposure: {currency_symbol}{penalty:,.2f}
 
 REQUIRED ACTION:
 {remediation}
@@ -438,9 +522,9 @@ Contract Compliance Team"""
 
     subject = f"[BREACH ALERT] {kpi_name} — {contract_name}"
     
-    # Suggest recipient from contract parties
-    suggested_to = ""
-    if contract and contract.get("parties"):
+    # Suggest recipient from KPI specific contact_email or contract parties
+    suggested_to = kpi.get("contact_email") or ""
+    if not suggested_to and contract and contract.get("parties"):
         for party in contract["parties"]:
             if party.get("role", "").lower() in ["supplier", "vendor", "contractor", "provider"]:
                 suggested_to = party.get("email", party.get("name", ""))

@@ -195,7 +195,9 @@ async def run_evaluation(contract_id: str, actuals_dir: Optional[str] = None) ->
         doc = result.model_dump()
         doc["severity"] = severity
         doc["kpi_name"] = kpi_name
-        doc["timestamp"] = datetime.now().isoformat()
+        # Use the latest actual's timestamp for meaningful time-series, fall back to now
+        actuals_timestamps = [a.get("timestamp") for a in data if a.get("timestamp")]
+        doc["timestamp"] = max(actuals_timestamps) if actuals_timestamps else datetime.now().isoformat()
         await breaches_coll.insert_one(doc)
         results.append(doc)
 

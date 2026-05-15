@@ -19,21 +19,38 @@ class BreachEngine:
     @classmethod
     def calculate_penalty(cls, kpi: Dict[str, Any], actual_val: float) -> float:
         """Calculate penalty based on the deviation from threshold."""
-        threshold = kpi.get("value_min", 0)
+        threshold = float(kpi.get("value_min") or 0)
         consequence_val = float(kpi.get("consequence_value") or 0.0)
-        # Check both fields for penalty description
-        penalty_desc = (str(kpi.get("consequence", "")) + " " + str(kpi.get("consequence_unit", ""))).lower()
-        
-        # Linear scaling: e.g. "$1,000 per percentage point below target"
-        if "per percentage point" in penalty_desc:
-            deviation = max(0, threshold - actual_val)
+        op_str = kpi.get("operator", ">=")
+
+        # Build penalty descriptor from consequence_unit only.
+        # NOTE: the KPI schema has no `consequence` text field — only
+        # `consequence_value` (float) and `consequence_unit` (str).
+        # Using kpi.get("consequence", "") would always return None → "None",
+        # which corrupts substring matching.
+        penalty_desc = str(kpi.get("consequence_unit") or "").lower()
+
+        # Direction helper — how far has the actual deviated past the threshold?
+        # For >= KPIs (e.g. volume, accuracy): breach means actual < threshold → deviation = threshold - actual
+        # For <= KPIs (e.g. damage rate, late rate): breach means actual > threshold → deviation = actual - threshold
+        if op_str in (">=", ">"):
+            deviation = max(0.0, threshold - actual_val)
+        else:
+            deviation = max(0.0, actual_val - threshold)
+
+        # Linear scaling: e.g. "INR per percentage point" or "USD per % point"
+        if "per percentage point" in penalty_desc or "per % point" in penalty_desc:
             return round(deviation * consequence_val, 2)
-        
+
+        # Per-unit volume scaling: e.g. "INR per unit", "per item", "per delivery"
+        if any(p in penalty_desc for p in ("per unit", "per item", "per delivery", "per good", "per piece")):
+            return round(deviation * consequence_val, 2)
+
         # Hourly scaling: e.g. "$500 per hour over threshold"
         if "per hour" in penalty_desc:
-            deviation = max(0, actual_val - threshold)
             return round(deviation * consequence_val, 2)
-            
+
+        # Flat penalty (no scaling keyword found): return the raw consequence value
         return consequence_val
 
     @classmethod

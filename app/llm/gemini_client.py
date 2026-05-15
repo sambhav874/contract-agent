@@ -24,8 +24,9 @@ class GeminiClient:
         system_prompt: str,
         user_message: str,
         response_schema: dict[str, Any] | None = None,
+        tools: list[Any] | None = None,
         temperature: float = 0.0,
-    ) -> dict[str, Any]:
+    ) -> Any:
         """
         Call Gemini model and return structured response.
         
@@ -38,6 +39,8 @@ class GeminiClient:
             "temperature": temperature,
             "system_instruction": system_prompt,
         }
+        if tools:
+            config["tools"] = tools
         
         if response_schema:
             config["response_mime_type"] = "application/json"
@@ -68,6 +71,36 @@ class GeminiClient:
             latency_ms = int((time.time() - start_time) * 1000)
             self._log_call(model, temperature, latency_ms, 500)
             raise ValueError(f"Gemini API call failed: {e}")
+
+    async def call_stream(
+        self,
+        model: str,
+        system_prompt: str,
+        user_message: str,
+        tools: list[Any] | None = None,
+        temperature: float = 0.0,
+    ):
+        """Call Gemini model with streaming enabled."""
+        config = {
+            "temperature": temperature,
+            "system_instruction": system_prompt,
+        }
+        if tools:
+            config["tools"] = tools
+
+        loop = asyncio.get_event_loop()
+        # Note: The SDK's generate_content_stream returns an iterator
+        stream = await loop.run_in_executor(
+            None,
+            lambda: self.client.models.generate_content_stream(
+                model=model,
+                contents=user_message,
+                config=config,
+            )
+        )
+        
+        for chunk in stream:
+            yield chunk
 
     def _parse_response(self, response: Any) -> dict[str, Any]:
         """Parse SDK response."""
@@ -129,8 +162,9 @@ async def call_gemini(
     system_prompt: str,
     user_message: str,
     response_schema: dict[str, Any] | None = None,
+    tools: list[Any] | None = None,
     temperature: float = 0.0,
-) -> dict[str, Any]:
+) -> Any:
     """Convenience function to call Gemini API."""
     client = get_gemini_client()
     return await client.call(
@@ -138,8 +172,28 @@ async def call_gemini(
         system_prompt=system_prompt,
         user_message=user_message,
         response_schema=response_schema,
+        tools=tools,
         temperature=temperature,
     )
+
+
+async def call_gemini_stream(
+    model: str,
+    system_prompt: str,
+    user_message: str,
+    tools: list[Any] | None = None,
+    temperature: float = 0.0,
+):
+    """Convenience function to call Gemini API with streaming."""
+    client = get_gemini_client()
+    async for chunk in client.call_stream(
+        model=model,
+        system_prompt=system_prompt,
+        user_message=user_message,
+        tools=tools,
+        temperature=temperature,
+    ):
+        yield chunk
 
 
 async def call_gemini_structured(

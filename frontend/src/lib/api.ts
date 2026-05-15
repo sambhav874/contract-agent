@@ -40,13 +40,31 @@ export async function updateBreach(breachId: string, updates: any) {
   return res.json();
 }
 
-export async function chatWithContract(contractId: string, question: string, breachId?: string) {
+export async function chatWithContract(contractId: string, question: string, breachId?: string, sessionId?: string) {
   const res = await fetch(`${API_BASE_URL}/contracts/${contractId}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question, breach_id: breachId }),
+    body: JSON.stringify({ question, breach_id: breachId, session_id: sessionId }),
   });
   if (!res.ok) throw new Error("Failed to chat with contract");
+  return res.json();
+}
+
+export async function chatWithContractStream(contractId: string, question: string, breachId?: string, sessionId?: string) {
+  const res = await fetch(`${API_BASE_URL}/contracts/${contractId}/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question, breach_id: breachId, session_id: sessionId }),
+  });
+  if (!res.ok) throw new Error("Failed to start chat stream");
+  return res;
+}
+
+export async function clearChatSession(sessionId: string) {
+  const res = await fetch(`${API_BASE_URL}/chat-session/${sessionId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error("Failed to clear chat session");
   return res.json();
 }
 

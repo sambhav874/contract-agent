@@ -137,16 +137,18 @@ class KPIItem(BaseModel):
     consequence_unit: str | None = Field(None, description="Unit for consequence (e.g., 'USD', '%')")
     # ────────────────────────────────────────────────────────────────
 
+    aggregation_type: str = Field("avg", description="How to aggregate performance data: sum / avg / min / max / latest")
     kpi_type: str = Field(description="Category: financial / timeline / volume / sla / penalty / other")
     party: str = Field(description="The party responsible for meeting this KPI or paying the penalty")
     trigger_condition: str = Field(description="The specific condition that triggers this KPI or penalty")
     section: str = Field(description="The section title where this KPI was found")
     structural_path: str = Field(description="The full hierarchical path (e.g., 'Article IV > Section 4.1')")
     clause_text: str = Field(description="Verbatim text from the contract containing the KPI (max 60 words)")
-    remediation: str | None = Field(None, description="Required corrective action if breached")
-    remediation_sla: str | None = Field(None, description="Timeline for completing remediation (e.g., '24 hours', '7 days')")
+    remediation: str = Field(description="Corrective action upon breach. If contract is silent, MUST provide a standard business action (e.g. RCA/CAP). 'Not specified' is NOT allowed.")
+    remediation_sla: str = Field(description="Timeline for completing remediation. If contract is silent, MUST provide a standard timeline (e.g. 48h/7d). 'Not specified' is NOT allowed.")
+    contact_email: str | None = Field(None, description="Primary email address for breach notifications (e.g. supplier's point of contact).")
     confidence: float = Field(ge=0.0, le=1.0, description="Confidence score from 0.0 to 1.0. Use 0.8-0.9 for likely but partially detailed items.")
-    breach_email_template: str | None = Field(None, description="Pre-generated email template for breach notifications. Use placeholders: {{kpi_name}}, {{threshold}}, {{actual_value}}, {{unit}}, {{penalty_amount}}, {{remediation}}, {{remediation_sla}}, {{contract_name}}")
+    breach_email_template: str | None = Field(None, description="A professional, human-sounding email template for breach notifications. Avoid AI-isms (e.g., 'I hope this finds you well', 'pivotal'). Use a direct, collaborative tone. Must include placeholders: {{kpi_name}}, {{threshold}}, {{actual_value}}, {{unit}}, {{penalty_amount}}, {{remediation}}, {{remediation_sla}}, {{contract_name}}.")
 
 
 
@@ -252,6 +254,29 @@ class OperationalActual(BaseModel):
     timestamp: str = Field(default_factory=lambda: datetime.now().isoformat())
     source: str = "manual"  # manual / email / api / erp
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class RawActual(BaseModel):
+    """Temporary storage for schema-agnostic performance data."""
+    raw_id: str = Field(default_factory=lambda: str(uuid4()))
+    contract_id: str
+    data: dict[str, Any]
+    source: str
+    ingested_at: datetime = Field(default_factory=datetime.utcnow)
+    status: str = "pending"  # pending / processed / error
+
+
+class MappingRule(BaseModel):
+    """Configuration for mapping raw data fields to a specific KPI."""
+    rule_id: str = Field(default_factory=lambda: str(uuid4()))
+    contract_id: str
+    source_match: str  # Exact match or prefix for the 'source' field
+    kpi_id: str
+    # Maps OperationalActual field names to JSON paths in the raw data
+    # e.g., {"value": "sensors.temp_reading", "unit": "metadata.unit"}
+    field_mappings: dict[str, str] = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
 
 class BreachResult(BaseModel):
     breach_id: str = Field(default_factory=lambda: str(uuid4()))

@@ -213,7 +213,7 @@ def _extract_structural_hints(
         "kpi":         ["kpi", "performance", "sla", "penalty", "payment", "price",
                         "exhibit", "schedule", "target", "milestone", "article iv",
                         "article 4", "section 4", "section 3.0", "specification", "standards",
-                        "reporting", "audit"],
+                        "reporting", "audit", "notice", "party", "contact"],
         "clause":      [],   # all sections
         "obligations": ["shall", "must", "obligat", "covenant", "notice", "report",
                         "payment", "terminat"],

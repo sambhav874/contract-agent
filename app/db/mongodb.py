@@ -5,7 +5,7 @@ from typing import Any
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection
 
 from app.config import settings
-from app.db.models import ChunkDocument, ContractMetadata
+from app.db.models import ChunkDocument, ContractMetadata, RawActual, MappingRule
 
 
 class MongoDB:
@@ -213,6 +213,57 @@ class MongoDB:
             {"$replaceRoot": {"newRoot": "$latest"}}
         ]
         return await collection.aggregate(pipeline).to_list(None)
+
+    # ── Raw Actuals & Mappings ───────────────────────────────────────
+
+    @classmethod
+    async def insert_raw_actual(cls, raw_actual: dict[str, Any]) -> str:
+        """Insert a raw, unmapped actual into staging."""
+        collection = cls.get_collection("raw_actuals")
+        result = await collection.insert_one(raw_actual)
+        return str(result.inserted_id)
+
+    @classmethod
+    async def get_pending_raw_actuals(cls, contract_id: str) -> list[dict[str, Any]]:
+        """Get all raw actuals that haven't been processed yet."""
+        collection = cls.get_collection("raw_actuals")
+        return await collection.find({"contract_id": contract_id, "status": "pending"}).to_list(None)
+
+    @classmethod
+    async def update_raw_actual_status(cls, raw_id: str, status: str) -> bool:
+        """Update the processing status of a raw actual."""
+        collection = cls.get_collection("raw_actuals")
+        result = await collection.update_one({"raw_id": raw_id}, {"$set": {"status": status}})
+        return result.matched_count > 0
+
+    @classmethod
+    async def get_raw_actuals(cls, contract_id: str, limit: int = 20) -> list[dict[str, Any]]:
+        """Get the most recent raw actuals for a contract (both pending and processed)."""
+        collection = cls.get_collection("raw_actuals")
+        return await collection.find({"contract_id": contract_id}).sort("ingested_at", -1).limit(limit).to_list(None)
+
+    @classmethod
+    async def get_raw_actuals_by_ids(cls, raw_ids: list[str]) -> list[dict[str, Any]]:
+        """Fetch specific raw records by their raw_id."""
+        collection = cls.get_collection("raw_actuals")
+        return await collection.find({"raw_id": {"$in": raw_ids}}).to_list(None)
+
+    @classmethod
+    async def upsert_mapping_rule(cls, rule: dict[str, Any]) -> str:
+        """Create or update a mapping rule."""
+        collection = cls.get_collection("mapping_rules")
+        await collection.update_one(
+            {"contract_id": rule["contract_id"], "source_match": rule["source_match"]},
+            {"$set": rule},
+            upsert=True
+        )
+        return rule.get("rule_id")
+
+    @classmethod
+    async def get_mapping_rules(cls, contract_id: str) -> list[dict[str, Any]]:
+        """Get all mapping rules for a contract."""
+        collection = cls.get_collection("mapping_rules")
+        return await collection.find({"contract_id": contract_id}).to_list(None)
 
     # ── Breach Results ───────────────────────────────────────────────
 

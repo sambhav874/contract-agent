@@ -3,11 +3,45 @@
 from typing import List, Dict, Any, Optional
 import json
 import os
+import time
 
 from app.db.mongodb import MongoDB
-from app.llm.gemini_client import call_gemini
+from app.llm.gemini_client import call_gemini, call_gemini_stream
 from app.retrieval.retriever import get_retriever
 from app.agents.ui_guidelines import DATA_VIZ_GUIDELINES, DIAGRAM_GUIDELINES
+from google.genai import types
+from app.config import settings
+
+
+# ── Session History Store ──────────────────────────────────────────────
+# Keyed by session_id → { "history": list[types.Content], "updated_at": float }
+# This keeps multi-turn conversation context alive across HTTP requests.
+_SESSION_STORE: Dict[str, Dict[str, Any]] = {}
+_SESSION_TTL_SECONDS = 2 * 60 * 60  # 2 hours
+
+
+def _purge_expired_sessions() -> None:
+    """Remove sessions that haven't been used in TTL window."""
+    cutoff = time.time() - _SESSION_TTL_SECONDS
+    expired = [sid for sid, s in _SESSION_STORE.items() if s["updated_at"] < cutoff]
+    for sid in expired:
+        del _SESSION_STORE[sid]
+
+
+def get_session_history(session_id: str) -> list:
+    """Return the stored Gemini history list for a session (empty list if new)."""
+    _purge_expired_sessions()
+    return _SESSION_STORE.get(session_id, {}).get("history", [])
+
+
+def save_session_history(session_id: str, history: list) -> None:
+    """Persist updated Gemini history for a session."""
+    _SESSION_STORE[session_id] = {"history": history, "updated_at": time.time()}
+
+
+def clear_session(session_id: str) -> None:
+    """Wipe a session's history (e.g. when user starts a new conversation)."""
+    _SESSION_STORE.pop(session_id, None)
 
 
 # ── Intent Classification ─────────────────────────────────────────────
@@ -89,6 +123,7 @@ def _serialize_structured_data(
     kpis: List[Dict],
     breaches: List[Dict],
     actuals: List[Dict],
+    **kwargs
 ) -> str:
     """
     Build a compact JSON block of real structured data for injection
@@ -155,6 +190,19 @@ def _serialize_structured_data(
             for a in sorted_actuals
         ]
 
+    raw_actuals = kwargs.get("raw_actuals", [])
+    if raw_actuals:
+        data["raw_actuals_staging"] = [
+            {
+                "raw_id": r.get("raw_id"),
+                "source": r.get("source"),
+                "data": r.get("data"),
+                "status": r.get("status"),
+                "ingested_at": str(r.get("ingested_at", ""))
+            }
+            for r in raw_actuals[:20]
+        ]
+
     # Summary stats for quick reference
     total_kpis = len(kpis)
     total_breaches = sum(1 for b in breaches if b.get("is_breach"))
@@ -175,12 +223,22 @@ def _serialize_structured_data(
 # ── System Prompts by Mode ────────────────────────────────────────────
 
 _BASE_PERSONA = """You are the Contract Guardian AI, an elite legal and commercial auditor.
-Use the provided contract context, breach details, and structured data to answer the user's question accurately.
+Use the tools at your disposal to fetch contract text and performance data.
+
+Thinking Process:
+1.  **Analyze**: Understand the user's intent.
+2.  **Plan**: Determine which tools are needed (clauses, performance data, raw logs).
+3.  **Execute**: Call tools.
+4.  **Synthesize**: Combine evidence into a final answer.
 
 Rules:
 1. CITATIONS: Always cite specific sections or articles using [Section X.XX] format.
-2. UNKNOWN: If the information is missing from the context, admit it and suggest where it might normally be found.
-3. Be professional, commercially astute, and concise."""
+2. EVIDENCE: Never invent data. Only use what is returned from tools.
+3. ADMIT: If data is missing after querying, admit it.
+
+CRITICAL: When thinking or planning, use <thought> and <plan> XML tags. DO NOT wrap these tags inside markdown code blocks (e.g. do NOT use ```xml). Output the tags directly in plain text.
+"""
+
 
 _TEXT_ONLY_PROMPT = f"""{_BASE_PERSONA}
 
@@ -189,8 +247,7 @@ Response format:
 - Use tables for comparing 3+ items side by side
 - Bold key terms and values
 - Quote relevant contract clauses using > blockquotes
-- DO NOT generate any HTML, SVG, or code blocks containing visual components
-- Keep answers focused and actionable"""
+"""
 
 _DATA_VIZ_PROMPT = f"""{_BASE_PERSONA}
 
@@ -229,142 +286,240 @@ DESIGN GUIDELINES:
 # ── Chat Agent ────────────────────────────────────────────────────────
 
 class ChatAgent:
-    """Agent for interactive Q&A about contracts and breaches."""
+    """Agent for interactive Q&A about contracts and breaches using dynamic tools."""
 
     def __init__(self, contract_id: str):
         self.contract_id = contract_id
         self.retriever = get_retriever()
 
-    async def answer_question(
+    def _get_tool_definitions(self) -> list[types.Tool]:
+        """Define the tools available to the agent."""
+        return [
+            types.Tool(
+                function_declarations=[
+                    types.FunctionDeclaration(
+                        name="search_contract_clauses",
+                        description="Search for specific legal clauses or sections in the contract using semantic search.",
+                        parameters=types.Schema(
+                            type="OBJECT",
+                            properties={
+                                "query": types.Schema(type="STRING", description="The search query (e.g. 'Force Majeure', 'Late Payment Penalty')"),
+                                "top_k": types.Schema(type="INTEGER", description="Number of chunks to return (default 10)"),
+                            },
+                            required=["query"]
+                        )
+                    ),
+                    types.FunctionDeclaration(
+                        name="query_contract_database",
+                        description="Query performance actuals, raw staging logs, or breach records from MongoDB.",
+                        parameters=types.Schema(
+                            type="OBJECT",
+                            properties={
+                                "collection": types.Schema(
+                                    type="STRING", 
+                                    enum=["actuals", "raw_actuals", "breaches"],
+                                    description="The collection to query"
+                                ),
+                                "filter": types.Schema(
+                                    type="OBJECT", 
+                                    description="MongoDB filter (e.g. {'kpi_id': 'KPI-1'})"
+                                ),
+                                "limit": types.Schema(type="INTEGER", description="Limit results (default 20)")
+                            },
+                            required=["collection"]
+                        )
+                    ),
+                    types.FunctionDeclaration(
+                        name="get_kpi_registry",
+                        description="Get the full list of KPIs, their targets, operators, and associated penalties.",
+                        parameters=types.Schema(type="OBJECT", properties={})
+                    )
+                ]
+            )
+        ]
+
+    async def _execute_tool(self, tool_call: Any) -> str:
+        """Execute a tool call and return the result as a string."""
+        name = tool_call.name
+        args = tool_call.args
+        
+        try:
+            if name == "search_contract_clauses":
+                chunks = await self.retriever.fetch(
+                    contract_id=self.contract_id,
+                    query=args.get("query"),
+                    top_k=args.get("top_k", 10)
+                )
+                return json.dumps([{
+                    "path": c.get("structural_path"),
+                    "text": c.get("text")
+                } for c in chunks])
+
+            elif name == "query_contract_database":
+                coll_name = args.get("collection")
+                query_filter = args.get("filter", {})
+                limit = args.get("limit", 20)
+                
+                # Security: Force contract_id
+                query_filter["contract_id"] = self.contract_id
+                
+                coll = MongoDB.get_collection(coll_name)
+                cursor = coll.find(query_filter).limit(limit)
+                results = await cursor.to_list(length=limit)
+                
+                for r in results:
+                    if "_id" in r: r["_id"] = str(r["_id"])
+                
+                return json.dumps(results, default=str)
+
+            elif name == "get_kpi_registry":
+                kpis = await MongoDB.get_kpis(self.contract_id)
+                for k in kpis:
+                    if "_id" in k: k["_id"] = str(k["_id"])
+                return json.dumps(kpis, default=str)
+                
+            return f"Error: Tool {name} not found."
+        except Exception as e:
+            return f"Error executing tool {name}: {str(e)}"
+
+    async def answer_question_stream(
         self,
         question: str,
         context_breach_id: Optional[str] = None,
-        kpis: Optional[List[Dict]] = None,
-        breaches: Optional[List[Dict]] = None,
-        actuals: Optional[List[Dict]] = None,
-    ) -> Dict[str, Any]:
+        session_id: Optional[str] = None,
+    ):
         """
-        Answer a question about the contract.
-
-        Args:
-            question: The user's question
-            context_breach_id: Optional breach ID for focused analysis
-            kpis: Pre-fetched KPI data (avoids re-fetching if caller has it)
-            breaches: Pre-fetched breach data
-            actuals: Pre-fetched actuals/performance data
+        Streaming version of answer_question that yields thoughts, tool calls, and results.
+        Supports multi-turn conversation via `session_id`.
         """
-
-        # 1. Classify intent
+        # 1. Setup
         mode = classify_intent(question)
 
-        # 2. If breach context is provided and mode is TEXT_ONLY, it stays text
-        #    but if the user is analyzing a breach, upgrade to DATA_VIZ if data exists
-        breach_context = ""
-        if context_breach_id:
-            breaches_coll = MongoDB.get_collection("breaches")
-            breach = await breaches_coll.find_one({"breach_id": context_breach_id})
-            if breach:
-                breach_context = (
-                    f"\n\nContext Breach Details:\n"
-                    f"- KPI: {breach.get('kpi_id')}\n"
-                    f"- Actual: {breach.get('actual_value')}\n"
-                    f"- Threshold: {breach.get('threshold_value')}\n"
-                    f"- Penalty Triggered: {breach.get('penalty_triggered')}\n"
-                    f"- Current Status: {breach.get('status')}"
-                )
+        # ── Rehydrate prior conversation history ──────────────────────
+        # Prior turns are stored as serialised Gemini Content objects.
+        # We load them, append the new user message, and save back after
+        # each agentic turn so the NEXT call sees the full conversation.
+        prior_history: list = get_session_history(session_id) if session_id else []
 
-        # 3. Fetch structured data from MongoDB if not provided
-        if kpis is None:
-            kpis = await MongoDB.get_kpis(self.contract_id)
-            # Clean ObjectIds
-            for k in kpis:
-                if "_id" in k:
-                    k["_id"] = str(k["_id"])
-        if breaches is None:
-            breaches_list = await MongoDB.get_breaches(self.contract_id)
-            for b in breaches_list:
-                if "_id" in b:
-                    b["_id"] = str(b["_id"])
-            breaches = breaches_list
-        if actuals is None:
-            actuals_list = await MongoDB.get_all_actuals(self.contract_id)
-            for a in actuals_list:
-                if "_id" in a:
-                    a["_id"] = str(a["_id"])
-            actuals = actuals_list
-
-        # 4. Build structured data block (only for DATA_VIZ / DIAGRAM)
-        structured_data_block = ""
-        if mode in (ResponseMode.DATA_VIZ, ResponseMode.DIAGRAM):
-            structured_data_block = _serialize_structured_data(kpis, breaches, actuals)
-            # If no meaningful data exists, downgrade to TEXT_ONLY
-            if not kpis and not breaches and not actuals:
-                mode = ResponseMode.TEXT_ONLY
-
-        # 5. Intent-optimized retrieval
-        q_lower = question.lower()
-        search_kwargs = {"top_k": 15}
-
-        if any(w in q_lower for w in ["summarize", "summary", "overview", "what is this contract about"]):
-            search_kwargs["levels"] = ["macro"]
-            search_kwargs["top_k"] = 30
-        elif any(w in q_lower for w in ["kpi", "performance", "metric", "target", "penalty"]):
-            search_kwargs["tags"] = ["kpi", "sla", "penalty", "milestone", "target", "performance"]
-            search_kwargs["levels"] = ["meso", "micro"]
-            search_kwargs["top_k"] = 25
-
-        # 6. Retrieve relevant contract clauses
-        chunks = await self.retriever.fetch(
-            contract_id=self.contract_id,
-            query=question + breach_context,
-            **search_kwargs
-        )
-
-        context_text = "\n\n".join(
-            [f"[{c.get('structural_path')}] {c.get('text')}" for c in chunks]
-        )
-
-        # 7. Build system prompt based on mode
+        history = prior_history + [
+            types.Content(role="user", parts=[types.Part(text=f"Question: {question}")])
+        ]
+        
+        system_prompt = _TEXT_ONLY_PROMPT
         if mode == ResponseMode.DATA_VIZ:
             system_prompt = _DATA_VIZ_PROMPT.replace("{{guidelines}}", DATA_VIZ_GUIDELINES)
         elif mode == ResponseMode.DIAGRAM:
             system_prompt = _DIAGRAM_PROMPT.replace("{{guidelines}}", DIAGRAM_GUIDELINES)
-        else:
-            system_prompt = _TEXT_ONLY_PROMPT
 
-        # 8. Call Gemini
-        user_message = (
-            f"Contract Context:\n{context_text}"
-            f"{breach_context}"
-            f"{structured_data_block}"
-            f"\n\nQuestion: {question}"
-        )
+        tools = self._get_tool_definitions()
+        
+        # 2. Main Agent Loop
+        max_turns = 15
+        turn = 0
+        
 
-        response = await call_gemini(
-            model="gemini-3-flash-preview",
-            system_prompt=system_prompt,
-            user_message=user_message,
-        )
+        print(f"DEBUG: Starting answer_question_stream for: {question}")
+        while turn < max_turns:
+            turn += 1
+            print(f"DEBUG: turn {turn}")
+            
+            has_tool_calls = False
 
-        # 9. Extract answer
-        answer = ""
-        if isinstance(response, dict):
-            answer = response.get("answer") or response.get("text") or str(response)
-        else:
-            answer = str(response)
+            # ── Accumulate the full response turn before processing ──────────
+            # This is critical for Gemini thinking models (gemini-2.5-*).
+            # These models attach a `thought_signature` to each Part that
+            # contains a function_call. If we reconstruct the Part from scratch
+            # (e.g. types.Part(function_call=fc)), the signature is lost and the
+            # next API call raises 400 INVALID_ARGUMENT.
+            #
+            # Strategy:
+            #   • Stream text chunks → yield to client in real-time (low latency)
+            #   • Collect ALL parts from every chunk into `accumulated_parts`
+            #   • After the stream ends, build ONE model Content from those parts
+            #     and append it to history (preserving thought_signatures).
+            #   • Then execute tool calls and append function_response turns.
 
-        return {
-            "answer": answer,
-            "mode": mode,
-            "citations": [
-                {
-                    "text": c.get("text"),
-                    "metadata": {
-                        "structural_path": c.get("structural_path"),
-                        "chunk_level": c.get("chunk_level"),
-                        "chunk_id": c.get("chunk_id"),
-                    },
-                }
-                for c in chunks
-            ],
-        }
+            accumulated_parts: list = []  # raw Part objects from the SDK
+
+            try:
+                async for chunk in call_gemini_stream(
+                    model="gemini-2.0-flash",
+                    system_prompt=system_prompt,
+                    user_message=history,
+                    tools=tools
+                ):
+                    if not (chunk.candidates and chunk.candidates[0].content and chunk.candidates[0].content.parts):
+                        continue
+
+                    for part in chunk.candidates[0].content.parts:
+                        # Stream text to client in real-time
+                        if part.text and part.text.strip():
+                            print(f"DEBUG: raw_text_chunk: {repr(part.text)}")
+                            yield {"type": "content", "content": part.text}
+
+                        # Announce tool calls to client in real-time
+                        if part.function_call:
+                            has_tool_calls = True
+                            fc = part.function_call
+                            print(f"DEBUG: tool_call: {fc.name}")
+                            yield {"type": "tool_call", "name": fc.name, "args": fc.args}
+
+                        # Always accumulate the original part (preserves thought_signature)
+                        accumulated_parts.append(part)
+
+            except Exception as e:
+                print(f"DEBUG: Gemini stream error: {e}")
+                yield {"type": "content", "content": f"Error communicating with AI: {str(e)}"}
+                break
+
+            if not has_tool_calls:
+                # Pure text turn — we're done
+                print("DEBUG: No tool calls this turn, stopping.")
+                break
+
+            # ── Append the complete model turn (with thought_signatures) ─────
+            if accumulated_parts:
+                history.append(types.Content(role="model", parts=accumulated_parts))
+
+            # ── Execute each tool call and append results ────────────────────
+            for part in accumulated_parts:
+                if not part.function_call:
+                    continue
+                fc = part.function_call
+                result = await self._execute_tool(fc)
+                print(f"DEBUG: tool_result: {fc.name} (length: {len(result)})")
+                yield {"type": "tool_result", "name": fc.name, "content": result}
+
+                history.append(
+                    types.Content(
+                        role="user",
+                        parts=[types.Part(
+                            function_response=types.FunctionResponse(
+                                name=fc.name,
+                                response={"result": result}
+                            )
+                        )]
+                    )
+                )
+            
+        print("DEBUG: Agent loop finished.")
+
+        # ── Persist history for next turn ────────────────────────────────────
+        # Strip the new user message (which is already in prior_history as far
+        # as the NEXT call is concerned — we save the FULL updated history so
+        # the model sees everything that happened in this turn).
+        if session_id:
+            save_session_history(session_id, history)
+
+        yield {"type": "done"}
+
+
+    async def answer_question(self, *args, **kwargs) -> Dict[str, Any]:
+        """Legacy non-streaming wrapper (optional, for backward compatibility)."""
+        # For now, just collect the stream and return the final content
+        full_text = ""
+        mode = "TEXT_ONLY"
+        async for chunk in self.answer_question_stream(*args, **kwargs):
+            if chunk["type"] == "content":
+                full_text += chunk["content"]
+        return {"answer": full_text, "mode": mode}

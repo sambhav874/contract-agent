@@ -97,7 +97,7 @@ class KPIAgent(BaseAgent):
         """Extract KPIs, calibrate confidence scores, and apply threshold filter."""
         raw: KPIExtractionOutput = await self._retrieve_and_analyze(
             contract_id=contract_id,
-            user_query=user_query or "Extract all KPIs, payment terms, milestones, and deadlines",
+            user_query=user_query or "Extract all KPIs, payment terms, milestones, and deadlines. IMPORTANT: For each KPI, find its remediation steps, corrective action plans, cure periods, service credits, or refunds in case of breach. Also find the contact email or notice address for the responsible party.",
             query_plan=query_plan,
             max_rounds=query_plan.max_retrieval_rounds,
             top_k=80, # Increased for exhaustive coverage

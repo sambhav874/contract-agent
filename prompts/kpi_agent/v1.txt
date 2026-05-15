@@ -38,11 +38,27 @@ To enable data-driven tracking, you MUST decompose qualitative strings into quan
    - `between` (for ranges like "95.0% - 96.9%" or "between X and Y")
 4. **`consequence_value`**: If the KPI has a penalty or bonus amount, extract the number.
 5. **`consequence_unit`**: The unit for the consequence (e.g., `USD`, `%`).
-6. **`remediation`**: Extract any specific corrective actions required if the KPI is breached (e.g., "Submit root cause analysis", "Refund 100% of fee").
-7. **`remediation_sla`**: The specific timeline or deadline to complete the remediation (e.g., "within 48 hours", "by next billing cycle").
-8. **`breach_email_template`**: Generate a professional email template to notify the counterparty of a breach.
-   - Use these EXACT placeholders: `{{kpi_name}}`, `{{threshold}}`, `{{actual_value}}`, `{{unit}}`, `{{penalty_amount}}`, `{{remediation}}`, `{{remediation_sla}}`, `{{contract_name}}`
-   - Structure: Professional greeting, clear statement of breach, threshold vs actual, resulting penalty (if any), required remediation action & deadline, professional closing.
+6. **`aggregation_type`**: Determine how raw performance data should be aggregated to compare against the threshold:
+   - `sum`: For volume/quantity targets (e.g., "300 units per month", "total weight").
+   - `avg`: For percentage, score, or rate targets (e.g., "99.5% uptime", "avg score of 4.0").
+   - `latest`: For point-in-time checks (e.g., "current staff count", "last audit status").
+7. **`remediation`**: (MANDATORY) Provide the corrective action required upon breach.
+   - **PRIORITY 1**: Extract specific actions from the contract (e.g., CAP, PIP, Refund, Credit).
+   - **PRIORITY 2**: Search for a general "Cure Period" or "Remedies" section.
+   - **MANDATORY FALLBACK**: If the contract is completely silent, you MUST provide a standard business-appropriate action (e.g., "Submit Root Cause Analysis (RCA) and Corrective Action Plan (CAP)"). You are NOT allowed to return "Not specified".
+8. **`remediation_sla`**: (MANDATORY) Provide the timeline for completing the remediation.
+   - **PRIORITY 1**: Extract from the contract.
+   - **MANDATORY FALLBACK**: If not stated, provide a standard business timeline (e.g., "48 hours" for critical/safety KPIs, "7 days" for others). You are NOT allowed to return "Not specified".
+9. **`contact_email`**: (OPTIONAL) Extract the primary email address for breach notifications.
+   - Look for the responsible party's "Notice" address, "Point of Contact", or general email in the introductory or signature sections.
+   - If multiple emails exist, prioritize the one most relevant to operations or legal notices.
+   - If NO email is found in the contract, return `null`.
+10. **`breach_email_template`**: (MANDATORY) Generate a professional, high-context email...
+   - **HUMAN-WRITTEN TONE**: Avoid "AI-isms" (e.g., "I hope this finds you well", "pivotal", "delve", "leverage", "robust", "testament"). Use a direct, professional, and slightly firm yet collaborative tone.
+   - **CONTEXT-RICH**: Clearly state the specific KPI that was breached, the required threshold, and the actual performance recorded. Reference the contract name.
+   - **ACTION-ORIENTED**: State the resulting penalty (if any) and the required remediation steps with their specific SLA.
+   - **PLACEHOLDERS**: You MUST use these EXACT placeholders: `{{kpi_name}}`, `{{threshold}}`, `{{actual_value}}`, `{{unit}}`, `{{penalty_amount}}`, `{{remediation}}`, `{{remediation_sla}}`, `{{contract_name}}`.
+   - **STRUCTURE**: Subject line (clear and urgent), professional greeting, the breach facts (threshold vs actual), the contractual consequence (penalty), the path to resolution (remediation & SLA), and a professional closing inviting a resolution discussion.
 
 ---
 
@@ -145,6 +161,7 @@ For every penalty table, extract:
     "operator": "between",
     "consequence_value": 2500,
     "consequence_unit": "USD per percentage point",
+    "aggregation_type": "avg",
     "kpi_type": "penalty",
     "party": "Concessionaire",
     "trigger_condition": "Meal arrives after aircraft departure",
@@ -164,6 +181,7 @@ For every penalty table, extract:
     "operator": ">=",
     "consequence_value": null,
     "consequence_unit": null,
+    "aggregation_type": "avg",
     "kpi_type": "sla",
     "party": "Concessionaire",
     "trigger_condition": "Monthly average on-time delivery rate",
@@ -172,7 +190,8 @@ For every penalty table, extract:
     "clause_text": "The Concessionaire shall maintain an On-Time Performance rate of at least 99.5%",
     "remediation": "Submit Performance Improvement Plan (PIP) if target missed for 2 consecutive months",
     "remediation_sla": "7 days",
-    "confidence": 1.0
+    "confidence": 1.0,
+    "breach_email_template": "Subject: Performance Alert: {{contract_name}} - {{kpi_name}} target missed\n\nHi Operations Team,\n\nI'm reaching out because the {{kpi_name}} for {{contract_name}} has dropped to {{actual_value}}{{unit}}, which is below our agreed {{threshold}}{{unit}} target.\n\nPer the agreement, this triggers a {{penalty_amount}} penalty. More importantly, we need to get this back on track. To address this, please {{remediation}} within the next {{remediation_sla}}.\n\nLet me know if there are any specific blockers we should discuss, or if you'd like to jump on a quick call to review the root cause.\n\nBest,\nContract Performance Team"
   }
 ]
 ```
