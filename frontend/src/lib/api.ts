@@ -1,8 +1,30 @@
 const API_BASE_URL = "http://localhost:8000";
 
+async function apiError(res: Response, fallback: string) {
+  let detail = fallback;
+  try {
+    const body = await res.clone().json();
+    detail = body?.detail || body?.message || fallback;
+  } catch {
+    try {
+      const text = await res.text();
+      if (text.trim()) detail = text.trim();
+    } catch {
+      detail = fallback;
+    }
+  }
+  return new Error(detail);
+}
+
 export async function fetchContracts() {
   const res = await fetch(`${API_BASE_URL}/contracts`);
   if (!res.ok) throw new Error("Failed to fetch contracts");
+  return res.json();
+}
+
+export async function fetchContractText(contractId: string) {
+  const res = await fetch(`${API_BASE_URL}/contracts/${contractId}/text`);
+  if (!res.ok) throw new Error("Failed to fetch contract text");
   return res.json();
 }
 
@@ -80,7 +102,7 @@ export async function ingestContract(filename: string) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ filename }),
   });
-  if (!res.ok) throw new Error("Failed to ingest contract");
+  if (!res.ok) throw await apiError(res, "Failed to ingest contract");
   return res.json();
 }
 
@@ -127,5 +149,73 @@ export async function uploadActualsCsv(contractId: string, file: File) {
     body: formData,
   });
   if (!res.ok) throw new Error("Failed to upload actuals CSV");
+  return res.json();
+}
+export async function uploadContract(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+  const res = await fetch(`${API_BASE_URL}/contracts/upload`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!res.ok) throw await apiError(res, "Failed to upload contract file");
+  return res.json();
+}
+
+// ── Question / Answer Library ──
+
+export async function fetchQACategories(contractId: string) {
+  const res = await fetch(`${API_BASE_URL}/contracts/${contractId}/qa/categories`);
+  if (!res.ok) throw new Error("Failed to fetch QA categories");
+  return res.json();
+}
+
+export async function generateQACategories(contractId: string) {
+  const res = await fetch(`${API_BASE_URL}/contracts/${contractId}/qa/generate`, { method: "POST" });
+  if (!res.ok) throw new Error("Failed to generate QA categories");
+  return res.json();
+}
+
+export async function searchAnswer(contractId: string, payload: { question: string }) {
+  const res = await fetch(`${API_BASE_URL}/contracts/${contractId}/qa/search`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error("Failed to search answer");
+  return res.json();
+}
+
+export async function saveQAPair(contractId: string, payload: { category: string; question: string; answer: string; sources?: string[]; exact_quotes?: string[]; justification?: string; confidence?: number }) {
+  const res = await fetch(`${API_BASE_URL}/contracts/${contractId}/qa/save`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error("Failed to save QA pair");
+  return res.json();
+}
+
+export async function fetchSavedQA(contractId: string) {
+  const res = await fetch(`${API_BASE_URL}/contracts/${contractId}/qa/saved`);
+  if (!res.ok) throw new Error("Failed to fetch saved QA");
+  return res.json();
+}
+
+export async function deleteSavedQA(contractId: string, qaId: string) {
+  const res = await fetch(`${API_BASE_URL}/contracts/${contractId}/qa/saved/${qaId}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Failed to delete saved QA");
+  return res.json();
+}
+
+export async function fetchSemanticMemory() {
+  const res = await fetch(`${API_BASE_URL}/memory/semantic`);
+  if (!res.ok) throw new Error("Failed to fetch semantic memory");
+  return res.json();
+}
+
+export async function fetchEpisodicMemory() {
+  const res = await fetch(`${API_BASE_URL}/memory/episodic`);
+  if (!res.ok) throw new Error("Failed to fetch episodic memory");
   return res.json();
 }

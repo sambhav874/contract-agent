@@ -39,7 +39,15 @@ from typing import Any
 
 from app.config import settings
 from app.llm.gemini_client import call_gemini
-from app.retrieval.langchain_retriever import get_langchain_retriever
+
+
+DEFAULT_RAG_THRESHOLDS = {
+    "faithfulness": 0.92,
+    "answer_relevance": 0.90,
+    "context_recall": 0.90,
+    "context_precision": 0.90,
+    "aggregate": 0.90,
+}
 
 
 # ── Data classes ──────────────────────────────────────────────────────────────
@@ -60,7 +68,7 @@ class EvalResult:
     question: str
     faithfulness: float = 0.0
     answer_relevance: float = 0.0
-    context_recall: float = 0.0
+    context_recall: float | None = None
     context_precision: float = 0.0
     # Raw judge reasoning (for debugging)
     faithfulness_reason: str = ""
@@ -71,14 +79,39 @@ class EvalResult:
 
     @property
     def aggregate_score(self) -> float:
-        """Weighted aggregate (faithfulness weighted most heavily)."""
-        return round(
-            0.35 * self.faithfulness
-            + 0.25 * self.answer_relevance
-            + 0.20 * self.context_recall
-            + 0.20 * self.context_precision,
-            4,
-        )
+        """Weighted aggregate across metrics that are available for this sample."""
+        weighted = [
+            ("faithfulness", self.faithfulness, 0.35),
+            ("answer_relevance", self.answer_relevance, 0.25),
+            ("context_precision", self.context_precision, 0.20),
+        ]
+        if self.context_recall is not None:
+            weighted.append(("context_recall", self.context_recall, 0.20))
+
+        total_weight = sum(weight for _, _, weight in weighted)
+        if total_weight == 0:
+            return 0.0
+        return round(sum(score * weight for _, score, weight in weighted) / total_weight, 4)
+
+    def metric_scores(self) -> dict[str, float]:
+        scores = {
+            "faithfulness": self.faithfulness,
+            "answer_relevance": self.answer_relevance,
+            "context_precision": self.context_precision,
+            "aggregate": self.aggregate_score,
+        }
+        if self.context_recall is not None:
+            scores["context_recall"] = self.context_recall
+        return scores
+
+    def quality_failures(self, thresholds: dict[str, float] | None = None) -> list[str]:
+        thresholds = thresholds or DEFAULT_RAG_THRESHOLDS
+        scores = self.metric_scores()
+        return [
+            metric
+            for metric, threshold in thresholds.items()
+            if metric in scores and scores[metric] < threshold
+        ]
 
 
 @dataclass
@@ -101,10 +134,47 @@ class EvalReport:
             return self
         self.mean_faithfulness      = round(sum(s.faithfulness for s in self.samples) / n, 4)
         self.mean_answer_relevance  = round(sum(s.answer_relevance for s in self.samples) / n, 4)
-        self.mean_context_recall    = round(sum(s.context_recall for s in self.samples) / n, 4)
+        recall_scores = [s.context_recall for s in self.samples if s.context_recall is not None]
+        self.mean_context_recall    = round(sum(recall_scores) / len(recall_scores), 4) if recall_scores else 0.0
         self.mean_context_precision = round(sum(s.context_precision for s in self.samples) / n, 4)
         self.mean_aggregate         = round(sum(s.aggregate_score for s in self.samples) / n, 4)
         return self
+
+    def quality_gate(self, thresholds: dict[str, float] | None = None) -> dict[str, Any]:
+        """Return a deterministic pass/fail gate for 90+ style quality targets."""
+        thresholds = thresholds or DEFAULT_RAG_THRESHOLDS
+        metrics = {
+            "faithfulness": self.mean_faithfulness,
+            "answer_relevance": self.mean_answer_relevance,
+            "context_precision": self.mean_context_precision,
+            "aggregate": self.mean_aggregate,
+        }
+        if any(sample.context_recall is not None for sample in self.samples):
+            metrics["context_recall"] = self.mean_context_recall
+
+        failed_metrics = {
+            metric: {"score": score, "threshold": thresholds[metric]}
+            for metric, score in metrics.items()
+            if metric in thresholds and score < thresholds[metric]
+        }
+
+        failed_samples = [
+            {
+                "question": sample.question,
+                "failures": sample.quality_failures(thresholds),
+                "scores": sample.metric_scores(),
+            }
+            for sample in self.samples
+            if sample.quality_failures(thresholds)
+        ]
+
+        return {
+            "passed": not failed_metrics and not failed_samples,
+            "thresholds": thresholds,
+            "metrics": metrics,
+            "failed_metrics": failed_metrics,
+            "failed_samples": failed_samples,
+        }
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -115,6 +185,7 @@ class EvalReport:
             "mean_aggregate": self.mean_aggregate,
             "num_samples": len(self.samples),
             "elapsed_seconds": round(self.elapsed_seconds, 2),
+            "quality_gate": self.quality_gate(),
             "samples": [
                 {
                     "question": s.question,
@@ -136,7 +207,7 @@ class RAGEvaluator:
     """
     Gemini-powered RAG evaluator.
 
-    Uses ``gemini-2.0-flash`` (fast, cheap) as the judge by default.
+    Uses ``gemini-3.1-flash-lite-preview`` (fast, cheap) as the judge by default.
     Set ``judge_model`` to switch to a stronger model if needed.
     """
 
@@ -357,7 +428,7 @@ Respond as JSON:
     ) -> tuple[float, str]:
         """
         Score context precision: what fraction of retrieved chunks are actually relevant?
-        Measures signal-to-noise ratio of the retrieval.
+        Measures signal-to-noise ratio and ranking quality of the retrieval.
         """
         labeled = "\n\n".join(
             f"[CHUNK {i+1}]\n{c[:800]}" for i, c in enumerate(contexts)
@@ -371,7 +442,10 @@ RETRIEVED CHUNKS:
 
 Task:
 For each chunk, decide if it is RELEVANT or IRRELEVANT to answering the question.
-context_precision_score = relevant_chunks / total_chunks  (round to 2dp)
+Then calculate rank-aware context precision:
+- precision@k = relevant_chunks_seen_up_to_rank_k / k
+- context_precision_score = average precision@k over ranks where the chunk is relevant
+- if no chunks are relevant, context_precision_score = 0.0
 
 Respond as JSON:
 {{
@@ -402,27 +476,32 @@ Respond as JSON:
     @staticmethod
     def _extract_score(raw: dict[str, Any], key: str) -> float:
         """Safely extract a numeric score from a Gemini JSON response."""
+        value: Any = None
         if isinstance(raw, dict):
-            val = raw.get(key, 0.0)
-            try:
-                return float(val)
-            except (TypeError, ValueError):
-                pass
-        # Fallback: scan raw string for the key
-        raw_str = json.dumps(raw) if isinstance(raw, dict) else str(raw)
-        match = re.search(rf'"{re.escape(key)}"\s*:\s*([0-9.]+)', raw_str)
-        if match:
-            try:
-                return float(match.group(1))
-            except ValueError:
-                pass
-        return 0.0
+            value = raw.get(key)
+        else:
+            raw_str = str(raw)
+            match = re.search(rf'"{re.escape(key)}"\s*:\s*([0-9.]+)', raw_str)
+            if match:
+                value = match.group(1)
+
+        try:
+            score = float(value)
+        except (TypeError, ValueError):
+            return 0.0
+        return max(0.0, min(1.0, score))
 
     @staticmethod
     def _extract_reasoning(raw: dict[str, Any]) -> str:
         """Extract reasoning field from response."""
         if isinstance(raw, dict):
             return str(raw.get("reasoning", ""))
+        try:
+            data = json.loads(str(raw))
+            if isinstance(data, dict):
+                return str(data.get("reasoning", ""))
+        except Exception:
+            pass
         return ""
 
     async def _build_samples_from_csv(
@@ -433,6 +512,8 @@ Respond as JSON:
         max_samples: int | None,
     ) -> list[EvalSample]:
         """Build EvalSample list from a KPI CSV file + live retrieval."""
+        from app.retrieval.langchain_retriever import get_langchain_retriever
+
         path = Path(csv_path)
         if not path.exists():
             raise FileNotFoundError(f"CSV not found: {csv_path}")

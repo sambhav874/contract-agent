@@ -1,0 +1,1940 @@
+{
+  "version": 1,
+  "description": "Golden cases for full backend evaluation of contract-agent. Auto-generated 119 cases from contract fixtures.",
+  "cases": [
+    {
+      "id": "case_0000_saas_agreement_summary",
+      "category": "summary",
+      "contract_id": "saas_agreement",
+      "contract_file": "tests/fixtures/contracts/saas_agreement.md",
+      "contract_name": "Saas Agreement",
+      "query": "Summarize this contract.",
+      "expected_intent": "SUMMARY",
+      "expected_agent": "SummaryAgent",
+      "expected_sections": [
+        "ARTICLE 1 - DEFINITIONS\n\n### 1.1 \"Agreement\" means this SaaS Agreement including all Exhibits and Schedules.\n\n### 1.2 \"Confidential Information\" means all non-public information disclosed by one party to the other, whether orally or in writing, that is designated as confidential or that reasonably should be understood to be confidential.\n\n### 1.3 \"Documentation\" means Provider's user guides, documentation, and specifications for the Service.\n\n### 1.4 \"Service\" means the software-as-a-service platform known as \"CloudServe Enterprise\" as described in Exhibit A.\n\n### 1.5 \"Subscription Term\" means the period during which Customer is authorized to access and use the Service, as specified in Exhibit B.\n\n## ARTICLE 2 - SUBSCRIPTION AND ACCESS\n\n### 2.1 Subscription Grant\nSubject to the terms of this Agreement and payment of applicable fees, Provider grants Customer a non-exclusive, non-transferable right to access and use the Service during the Subscription Term.\n\n### 2.2 User Limits\nCustomer's access is limited to the number of Authorized Users specified in Exhibit B. Customer may increase the number of Authorized Users upon written notice and payment of applicable fees.\n\n### 2.3 Restrictions\nCustomer shall not",
+        "ARTICLE 3 - SERVICE LEVEL AGREEMENT\n\n### 3.1 Uptime Commitment\nProvider shall maintain uptime availability of ninety-nine percent (99.0%) during normal business hours and ninety-nine percent (99.0%) overall in any given calendar month.\n\n### 3.2 Downtime Exclusions\nDowntime does not include",
+        "ARTICLE 4 - FEES AND PAYMENT\n\n### 4.1 Subscription Fees\nCustomer shall pay the subscription fees specified in Exhibit B. All fees are non-refundable and payable in United States Dollars.\n\n### 4.2 Payment Terms\nFees are payable annually in advance. Late payments shall accrue interest at the rate of 1.5% per month or the maximum rate permitted by law, whichever is lower.\n\n### 4.3 Price Increases\nProvider may increase subscription fees upon renewal by providing ninety (90) days prior written notice. Price increases shall not exceed fifteen percent (15%) of the prior year's fees.\n\n### 4.4 Taxes\nFees are exclusive of taxes. Customer is responsible for all sales, use, and value-added taxes associated with the Service.\n\n## ARTICLE 5 - DATA SECURITY AND PRIVACY\n\n### 5.1 Security Measures\nProvider shall implement and maintain reasonable administrative, physical, and technical safeguards to protect Customer Data, including encryption in transit and at rest.\n\n### 5.2 Data Breach Notification\nProvider shall notify Customer within seventy-two (72) hours of becoming aware of any unauthorized access to Customer Data.\n\n### 5.3 Compliance\nProvider shall comply with applicable data protection laws including GDPR for EU personal data and CCPA for California personal information.\n\n## ARTICLE 6 - INTELLECTUAL PROPERTY\n\n### 6.1 Provider IP\nProvider retains all rights, title, and interest in and to the Service, Documentation, and any modifications or improvements thereto.\n\n### 6.2 Customer Data\nCustomer retains all rights, title, and interest in and to Customer Data. Customer grants Provider a limited license to host, copy, and transmit Customer Data solely for providing the Service.\n\n### 6.3 Feedback\nCustomer grants Provider a perpetual, irrevocable, royalty-free license to use any feedback provided about the Service.\n\n## ARTICLE 7 - CONFIDENTIALITY\n\n### 7.1 Obligations\nEach party shall"
+      ],
+      "expected_keywords": [
+        "effective date",
+        "parties"
+      ],
+      "ragas_ground_truth": "High-level summary of saas_agreement."
+    },
+    {
+      "id": "case_0001_saas_agreement_clause_ARTICLE_1_-_DEFINITIONS\n\n###_1.1_\"Agreement\"_means_this_SaaS_Agreement_including_all_Exhibits_and_Schedules.\n\n###_1.2_\"Confidential_Information\"_means_all_non-public_information_disclosed_by_one_party_to_the_other,_whether_orally_or_in_writing,_that_is_designated_as_confidential_or_that_reasonably_should_be_understood_to_be_confidential.\n\n###_1.3_\"Documentation\"_means_Provider's_user_guides,_documentation,_and_specifications_for_the_Service.\n\n###_1.4_\"Service\"_means_the_software-as-a-service_platform_known_as_\"CloudServe_Enterprise\"_as_described_in_Exhibit_A.\n\n###_1.5_\"Subscription_Term\"_means_the_period_during_which_Customer_is_authorized_to_access_and_use_the_Service,_as_specified_in_Exhibit_B.\n\n##_ARTICLE_2_-_SUBSCRIPTION_AND_ACCESS\n\n###_2.1_Subscription_Grant\nSubject_to_the_terms_of_this_Agreement_and_payment_of_applicable_fees,_Provider_grants_Customer_a_non-exclusive,_non-transferable_right_to_access_and_use_the_Service_during_the_Subscription_Term.\n\n###_2.2_User_Limits\nCustomer's_access_is_limited_to_the_number_of_Authorized_Users_specified_in_Exhibit_B._Customer_may_increase_the_number_of_Authorized_Users_upon_written_notice_and_payment_of_applicable_fees.\n\n###_2.3_Restrictions\nCustomer_shall_not",
+      "category": "clause_analysis",
+      "contract_id": "saas_agreement",
+      "contract_file": "tests/fixtures/contracts/saas_agreement.md",
+      "contract_name": "Saas Agreement",
+      "query": "Explain ARTICLE 1 - DEFINITIONS\n\n### 1.1 \"Agreement\" means this SaaS Agreement including all Exhibits and Schedules.\n\n### 1.2 \"Confidential Information\" means all non-public information disclosed by one party to the other, whether orally or in writing, that is designated as confidential or that reasonably should be understood to be confidential.\n\n### 1.3 \"Documentation\" means Provider's user guides, documentation, and specifications for the Service.\n\n### 1.4 \"Service\" means the software-as-a-service platform known as \"CloudServe Enterprise\" as described in Exhibit A.\n\n### 1.5 \"Subscription Term\" means the period during which Customer is authorized to access and use the Service, as specified in Exhibit B.\n\n## ARTICLE 2 - SUBSCRIPTION AND ACCESS\n\n### 2.1 Subscription Grant\nSubject to the terms of this Agreement and payment of applicable fees, Provider grants Customer a non-exclusive, non-transferable right to access and use the Service during the Subscription Term.\n\n### 2.2 User Limits\nCustomer's access is limited to the number of Authorized Users specified in Exhibit B. Customer may increase the number of Authorized Users upon written notice and payment of applicable fees.\n\n### 2.3 Restrictions\nCustomer shall not",
+      "expected_intent": "CLAUSE_LOOKUP",
+      "expected_agent": "ClauseAgent",
+      "expected_sections": [
+        "ARTICLE 1 - DEFINITIONS\n\n### 1.1 \"Agreement\" means this SaaS Agreement including all Exhibits and Schedules.\n\n### 1.2 \"Confidential Information\" means all non-public information disclosed by one party to the other, whether orally or in writing, that is designated as confidential or that reasonably should be understood to be confidential.\n\n### 1.3 \"Documentation\" means Provider's user guides, documentation, and specifications for the Service.\n\n### 1.4 \"Service\" means the software-as-a-service platform known as \"CloudServe Enterprise\" as described in Exhibit A.\n\n### 1.5 \"Subscription Term\" means the period during which Customer is authorized to access and use the Service, as specified in Exhibit B.\n\n## ARTICLE 2 - SUBSCRIPTION AND ACCESS\n\n### 2.1 Subscription Grant\nSubject to the terms of this Agreement and payment of applicable fees, Provider grants Customer a non-exclusive, non-transferable right to access and use the Service during the Subscription Term.\n\n### 2.2 User Limits\nCustomer's access is limited to the number of Authorized Users specified in Exhibit B. Customer may increase the number of Authorized Users upon written notice and payment of applicable fees.\n\n### 2.3 Restrictions\nCustomer shall not"
+      ],
+      "expected_keywords": [
+        "(a) permit unauthorized access to the Service; (b) use the Service for illegal purposes; (c) attempt to gain unauthorized access to the Service; (d) use the Service to store or transmit malicious code; or (e) reverse engineer, decompile, or disassemble the Service."
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0002_saas_agreement_clause_ARTICLE_3_-_SERVICE_LEVEL_AGREEMENT\n\n###_3.1_Uptime_Commitment\nProvider_shall_maintain_uptime_availability_of_ninety-nine_percent_(99.0%)_during_normal_business_hours_and_ninety-nine_percent_(99.0%)_overall_in_any_given_calendar_month.\n\n###_3.2_Downtime_Exclusions\nDowntime_does_not_include",
+      "category": "clause_analysis",
+      "contract_id": "saas_agreement",
+      "contract_file": "tests/fixtures/contracts/saas_agreement.md",
+      "contract_name": "Saas Agreement",
+      "query": "Explain ARTICLE 3 - SERVICE LEVEL AGREEMENT\n\n### 3.1 Uptime Commitment\nProvider shall maintain uptime availability of ninety-nine percent (99.0%) during normal business hours and ninety-nine percent (99.0%) overall in any given calendar month.\n\n### 3.2 Downtime Exclusions\nDowntime does not include",
+      "expected_intent": "CLAUSE_LOOKUP",
+      "expected_agent": "ClauseAgent",
+      "expected_sections": [
+        "ARTICLE 3 - SERVICE LEVEL AGREEMENT\n\n### 3.1 Uptime Commitment\nProvider shall maintain uptime availability of ninety-nine percent (99.0%) during normal business hours and ninety-nine percent (99.0%) overall in any given calendar month.\n\n### 3.2 Downtime Exclusions\nDowntime does not include"
+      ],
+      "expected_keywords": [
+        "(a) scheduled maintenance with at least 48 hours prior notice; (b) emergency maintenance; (c) Customer's equipment or network issues; (d) force majeure events."
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0003_saas_agreement_clause_ARTICLE_4_-_FEES_AND_PAYMENT\n\n###_4.1_Subscription_Fees\nCustomer_shall_pay_the_subscription_fees_specified_in_Exhibit_B._All_fees_are_non-refundable_and_payable_in_United_States_Dollars.\n\n###_4.2_Payment_Terms\nFees_are_payable_annually_in_advance._Late_payments_shall_accrue_interest_at_the_rate_of_1.5%_per_month_or_the_maximum_rate_permitted_by_law,_whichever_is_lower.\n\n###_4.3_Price_Increases\nProvider_may_increase_subscription_fees_upon_renewal_by_providing_ninety_(90)_days_prior_written_notice._Price_increases_shall_not_exceed_fifteen_percent_(15%)_of_the_prior_year's_fees.\n\n###_4.4_Taxes\nFees_are_exclusive_of_taxes._Customer_is_responsible_for_all_sales,_use,_and_value-added_taxes_associated_with_the_Service.\n\n##_ARTICLE_5_-_DATA_SECURITY_AND_PRIVACY\n\n###_5.1_Security_Measures\nProvider_shall_implement_and_maintain_reasonable_administrative,_physical,_and_technical_safeguards_to_protect_Customer_Data,_including_encryption_in_transit_and_at_rest.\n\n###_5.2_Data_Breach_Notification\nProvider_shall_notify_Customer_within_seventy-two_(72)_hours_of_becoming_aware_of_any_unauthorized_access_to_Customer_Data.\n\n###_5.3_Compliance\nProvider_shall_comply_with_applicable_data_protection_laws_including_GDPR_for_EU_personal_data_and_CCPA_for_California_personal_information.\n\n##_ARTICLE_6_-_INTELLECTUAL_PROPERTY\n\n###_6.1_Provider_IP\nProvider_retains_all_rights,_title,_and_interest_in_and_to_the_Service,_Documentation,_and_any_modifications_or_improvements_thereto.\n\n###_6.2_Customer_Data\nCustomer_retains_all_rights,_title,_and_interest_in_and_to_Customer_Data._Customer_grants_Provider_a_limited_license_to_host,_copy,_and_transmit_Customer_Data_solely_for_providing_the_Service.\n\n###_6.3_Feedback\nCustomer_grants_Provider_a_perpetual,_irrevocable,_royalty-free_license_to_use_any_feedback_provided_about_the_Service.\n\n##_ARTICLE_7_-_CONFIDENTIALITY\n\n###_7.1_Obligations\nEach_party_shall",
+      "category": "clause_analysis",
+      "contract_id": "saas_agreement",
+      "contract_file": "tests/fixtures/contracts/saas_agreement.md",
+      "contract_name": "Saas Agreement",
+      "query": "Explain ARTICLE 4 - FEES AND PAYMENT\n\n### 4.1 Subscription Fees\nCustomer shall pay the subscription fees specified in Exhibit B. All fees are non-refundable and payable in United States Dollars.\n\n### 4.2 Payment Terms\nFees are payable annually in advance. Late payments shall accrue interest at the rate of 1.5% per month or the maximum rate permitted by law, whichever is lower.\n\n### 4.3 Price Increases\nProvider may increase subscription fees upon renewal by providing ninety (90) days prior written notice. Price increases shall not exceed fifteen percent (15%) of the prior year's fees.\n\n### 4.4 Taxes\nFees are exclusive of taxes. Customer is responsible for all sales, use, and value-added taxes associated with the Service.\n\n## ARTICLE 5 - DATA SECURITY AND PRIVACY\n\n### 5.1 Security Measures\nProvider shall implement and maintain reasonable administrative, physical, and technical safeguards to protect Customer Data, including encryption in transit and at rest.\n\n### 5.2 Data Breach Notification\nProvider shall notify Customer within seventy-two (72) hours of becoming aware of any unauthorized access to Customer Data.\n\n### 5.3 Compliance\nProvider shall comply with applicable data protection laws including GDPR for EU personal data and CCPA for California personal information.\n\n## ARTICLE 6 - INTELLECTUAL PROPERTY\n\n### 6.1 Provider IP\nProvider retains all rights, title, and interest in and to the Service, Documentation, and any modifications or improvements thereto.\n\n### 6.2 Customer Data\nCustomer retains all rights, title, and interest in and to Customer Data. Customer grants Provider a limited license to host, copy, and transmit Customer Data solely for providing the Service.\n\n### 6.3 Feedback\nCustomer grants Provider a perpetual, irrevocable, royalty-free license to use any feedback provided about the Service.\n\n## ARTICLE 7 - CONFIDENTIALITY\n\n### 7.1 Obligations\nEach party shall",
+      "expected_intent": "CLAUSE_LOOKUP",
+      "expected_agent": "ClauseAgent",
+      "expected_sections": [
+        "ARTICLE 4 - FEES AND PAYMENT\n\n### 4.1 Subscription Fees\nCustomer shall pay the subscription fees specified in Exhibit B. All fees are non-refundable and payable in United States Dollars.\n\n### 4.2 Payment Terms\nFees are payable annually in advance. Late payments shall accrue interest at the rate of 1.5% per month or the maximum rate permitted by law, whichever is lower.\n\n### 4.3 Price Increases\nProvider may increase subscription fees upon renewal by providing ninety (90) days prior written notice. Price increases shall not exceed fifteen percent (15%) of the prior year's fees.\n\n### 4.4 Taxes\nFees are exclusive of taxes. Customer is responsible for all sales, use, and value-added taxes associated with the Service.\n\n## ARTICLE 5 - DATA SECURITY AND PRIVACY\n\n### 5.1 Security Measures\nProvider shall implement and maintain reasonable administrative, physical, and technical safeguards to protect Customer Data, including encryption in transit and at rest.\n\n### 5.2 Data Breach Notification\nProvider shall notify Customer within seventy-two (72) hours of becoming aware of any unauthorized access to Customer Data.\n\n### 5.3 Compliance\nProvider shall comply with applicable data protection laws including GDPR for EU personal data and CCPA for California personal information.\n\n## ARTICLE 6 - INTELLECTUAL PROPERTY\n\n### 6.1 Provider IP\nProvider retains all rights, title, and interest in and to the Service, Documentation, and any modifications or improvements thereto.\n\n### 6.2 Customer Data\nCustomer retains all rights, title, and interest in and to Customer Data. Customer grants Provider a limited license to host, copy, and transmit Customer Data solely for providing the Service.\n\n### 6.3 Feedback\nCustomer grants Provider a perpetual, irrevocable, royalty-free license to use any feedback provided about the Service.\n\n## ARTICLE 7 - CONFIDENTIALITY\n\n### 7.1 Obligations\nEach party shall"
+      ],
+      "expected_keywords": [
+        "(a) protect Confidential Information using reasonable care; (b) not disclose Confidential Information to third parties except to employees and advisors with a need to know; (c) use Confidential Information only for purposes of this Agreement."
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0004_saas_agreement_clause_ARTICLE_8_-_WARRANTIES_AND_DISCLAIMERS\n\n###_8.1_Mutual_Warranty\nEach_party_represents_and_warrants_that_it_has_the_authority_to_enter_into_this_Agreement.\n\n###_8.2_Service_Warranty\nProvider_warrants_that_the_Service_will_perform_substantially_in_accordance_with_the_Documentation_under_normal_use.\n\n###_8.3_Disclaimer\nEXCEPT_AS_EXPRESSLY_STATED,_THE_SERVICE_IS_PROVIDED_\"AS_IS\"_WITHOUT_WARRANTY_OF_ANY_KIND,_EXPRESS_OR_IMPLIED,_INCLUDING_BUT_NOT_LIMITED_TO_WARRANTIES_OF_MERCHANTABILITY,_FITNESS_FOR_A_PARTICULAR_PURPOSE,_OR_NON-INFRINGEMENT.\n\n##_ARTICLE_9_-_LIMITATION_OF_LIABILITY\n\n###_9.1_Consequential_Damages_Waiver\nNEITHER_PARTY_SHALL_BE_LIABLE_FOR_INDIRECT,_INCIDENTAL,_SPECIAL,_CONSEQUENTIAL,_OR_PUNITIVE_DAMAGES,_OR_LOST_PROFITS,_REGARDLESS_OF_THE_CAUSE_OF_ACTION_AND_EVEN_IF_ADVISED_OF_THE_POSSIBILITY_OF_SUCH_DAMAGES.\n\n###_9.2_Liability_Cap\nEXCEPT_FOR_BREACHES_OF_SECTION_2.3_(RESTRICTIONS),_SECTION_7_(CONFIDENTIALITY),_OR_CUSTOMER'S_PAYMENT_OBLIGATIONS,_EACH_PARTY'S_TOTAL_AGGREGATE_LIABILITY_SHALL_NOT_EXCEED_THE_FEES_PAID_OR_PAYABLE_BY_CUSTOMER_IN_THE_TWELVE_(12)_MONTHS_PRECEDING_THE_CLAIM.\n\n###_9.3_Exceptions\nThe_liability_cap_shall_not_apply_to",
+      "category": "clause_analysis",
+      "contract_id": "saas_agreement",
+      "contract_file": "tests/fixtures/contracts/saas_agreement.md",
+      "contract_name": "Saas Agreement",
+      "query": "Explain ARTICLE 8 - WARRANTIES AND DISCLAIMERS\n\n### 8.1 Mutual Warranty\nEach party represents and warrants that it has the authority to enter into this Agreement.\n\n### 8.2 Service Warranty\nProvider warrants that the Service will perform substantially in accordance with the Documentation under normal use.\n\n### 8.3 Disclaimer\nEXCEPT AS EXPRESSLY STATED, THE SERVICE IS PROVIDED \"AS IS\" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, OR NON-INFRINGEMENT.\n\n## ARTICLE 9 - LIMITATION OF LIABILITY\n\n### 9.1 Consequential Damages Waiver\nNEITHER PARTY SHALL BE LIABLE FOR INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR LOST PROFITS, REGARDLESS OF THE CAUSE OF ACTION AND EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.\n\n### 9.2 Liability Cap\nEXCEPT FOR BREACHES OF SECTION 2.3 (RESTRICTIONS), SECTION 7 (CONFIDENTIALITY), OR CUSTOMER'S PAYMENT OBLIGATIONS, EACH PARTY'S TOTAL AGGREGATE LIABILITY SHALL NOT EXCEED THE FEES PAID OR PAYABLE BY CUSTOMER IN THE TWELVE (12) MONTHS PRECEDING THE CLAIM.\n\n### 9.3 Exceptions\nThe liability cap shall not apply to",
+      "expected_intent": "CLAUSE_LOOKUP",
+      "expected_agent": "ClauseAgent",
+      "expected_sections": [
+        "ARTICLE 8 - WARRANTIES AND DISCLAIMERS\n\n### 8.1 Mutual Warranty\nEach party represents and warrants that it has the authority to enter into this Agreement.\n\n### 8.2 Service Warranty\nProvider warrants that the Service will perform substantially in accordance with the Documentation under normal use.\n\n### 8.3 Disclaimer\nEXCEPT AS EXPRESSLY STATED, THE SERVICE IS PROVIDED \"AS IS\" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, OR NON-INFRINGEMENT.\n\n## ARTICLE 9 - LIMITATION OF LIABILITY\n\n### 9.1 Consequential Damages Waiver\nNEITHER PARTY SHALL BE LIABLE FOR INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR LOST PROFITS, REGARDLESS OF THE CAUSE OF ACTION AND EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.\n\n### 9.2 Liability Cap\nEXCEPT FOR BREACHES OF SECTION 2.3 (RESTRICTIONS), SECTION 7 (CONFIDENTIALITY), OR CUSTOMER'S PAYMENT OBLIGATIONS, EACH PARTY'S TOTAL AGGREGATE LIABILITY SHALL NOT EXCEED THE FEES PAID OR PAYABLE BY CUSTOMER IN THE TWELVE (12) MONTHS PRECEDING THE CLAIM.\n\n### 9.3 Exceptions\nThe liability cap shall not apply to"
+      ],
+      "expected_keywords": [
+        "(a) breaches of confidentiality obligations; (b) infringement of intellectual property rights; (c) gross negligence or willful misconduct; (d) amounts owed for payment obligations."
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0005_saas_agreement_clause_ARTICLE_10_-_TERM_AND_TERMINATION\n\n###_10.1_Initial_Term\nThis_Agreement_shall_commence_on_the_Effective_Date_and_continue_for_the_Initial_Term_specified_in_Exhibit_B.\n\n###_10.2_Renewal\nThis_Agreement_shall_automatically_renew_for_successive_one_(1)_year_periods_unless_either_party_provides_written_notice_of_non-renewal_at_least_ninety_(90)_days_prior_to_the_end_of_the_then-current_term.\n\n###_10.3_Termination_for_Cause\nEither_party_may_terminate_this_Agreement_for_material_breach_if_the_breaching_party_fails_to_cure_such_breach_within_thirty_(30)_days_after_written_notice.\n\n###_10.4_Insolvency\nEither_party_may_terminate_immediately_upon_written_notice_if_the_other_party_becomes_insolvent,_files_for_bankruptcy,_or_ceases_business_operations.\n\n###_10.5_Effect_of_Termination\nUpon_termination",
+      "category": "clause_analysis",
+      "contract_id": "saas_agreement",
+      "contract_file": "tests/fixtures/contracts/saas_agreement.md",
+      "contract_name": "Saas Agreement",
+      "query": "Explain ARTICLE 10 - TERM AND TERMINATION\n\n### 10.1 Initial Term\nThis Agreement shall commence on the Effective Date and continue for the Initial Term specified in Exhibit B.\n\n### 10.2 Renewal\nThis Agreement shall automatically renew for successive one (1) year periods unless either party provides written notice of non-renewal at least ninety (90) days prior to the end of the then-current term.\n\n### 10.3 Termination for Cause\nEither party may terminate this Agreement for material breach if the breaching party fails to cure such breach within thirty (30) days after written notice.\n\n### 10.4 Insolvency\nEither party may terminate immediately upon written notice if the other party becomes insolvent, files for bankruptcy, or ceases business operations.\n\n### 10.5 Effect of Termination\nUpon termination",
+      "expected_intent": "CLAUSE_LOOKUP",
+      "expected_agent": "ClauseAgent",
+      "expected_sections": [
+        "ARTICLE 10 - TERM AND TERMINATION\n\n### 10.1 Initial Term\nThis Agreement shall commence on the Effective Date and continue for the Initial Term specified in Exhibit B.\n\n### 10.2 Renewal\nThis Agreement shall automatically renew for successive one (1) year periods unless either party provides written notice of non-renewal at least ninety (90) days prior to the end of the then-current term.\n\n### 10.3 Termination for Cause\nEither party may terminate this Agreement for material breach if the breaching party fails to cure such breach within thirty (30) days after written notice.\n\n### 10.4 Insolvency\nEither party may terminate immediately upon written notice if the other party becomes insolvent, files for bankruptcy, or ceases business operations.\n\n### 10.5 Effect of Termination\nUpon termination"
+      ],
+      "expected_keywords": [
+        "(a) all unpaid fees become immediately due; (b) Customer shall cease using the Service; (c) Provider shall return or destroy Customer Data within sixty (60) days."
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0006_saas_agreement_obligation_1",
+      "category": "obligation_tracking",
+      "contract_id": "saas_agreement",
+      "contract_file": "tests/fixtures/contracts/saas_agreement.md",
+      "contract_name": "Saas Agreement",
+      "query": "What are the obligations in this contract?",
+      "expected_intent": "OBLIGATION_TRACK",
+      "expected_agent": "ObligationAgent",
+      "expected_keywords": [
+        "shall",
+        "must"
+      ],
+      "ragas_ground_truth": "ight to access and use the Service during the Subscription Term.\n\n### 2.2 User Limits\nCustomer's access is limited to the number of Authorized Users specified in Exhibit B. Customer may increase the n"
+    },
+    {
+      "id": "case_0007_saas_agreement_risk_1",
+      "category": "risk_detection",
+      "contract_id": "saas_agreement",
+      "contract_file": "tests/fixtures/contracts/saas_agreement.md",
+      "contract_name": "Saas Agreement",
+      "query": "What are the main risks?",
+      "expected_intent": "RISK_ANALYSIS",
+      "expected_agent": "RiskAgent",
+      "expected_keywords": [
+        "termination",
+        "liability",
+        "damages"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0008_saas_agreement_parties",
+      "category": "general_query",
+      "contract_id": "saas_agreement",
+      "contract_file": "tests/fixtures/contracts/saas_agreement.md",
+      "contract_name": "Saas Agreement",
+      "query": "Who are the parties?",
+      "expected_intent": "GENERAL_QUERY",
+      "expected_keywords": [
+        "party",
+        "parties"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0009_saas_agreement_key_dates",
+      "category": "key_dates",
+      "contract_id": "saas_agreement",
+      "contract_file": "tests/fixtures/contracts/saas_agreement.md",
+      "contract_name": "Saas Agreement",
+      "query": "What are the key dates?",
+      "expected_intent": "GENERAL_QUERY",
+      "expected_keywords": [
+        "date",
+        "effective",
+        "term"
+      ],
+      "expected_values": {
+        "effective_date": "March 1, 2025"
+      },
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0010_saas_agreement_compliance_1",
+      "category": "compliance",
+      "contract_id": "saas_agreement",
+      "contract_file": "tests/fixtures/contracts/saas_agreement.md",
+      "contract_name": "Saas Agreement",
+      "query": "Generate a compliance report.",
+      "expected_intent": "COMPLIANCE",
+      "expected_keywords": [
+        "breach",
+        "penalty",
+        "KPI"
+      ],
+      "expected_tools": [
+        "generate_compliance_report"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0011_saas_agreement_qa_generate",
+      "category": "qa_generation",
+      "contract_id": "saas_agreement",
+      "contract_file": "tests/fixtures/contracts/saas_agreement.md",
+      "contract_name": "Saas Agreement",
+      "query": "What questions should I ask about this contract?",
+      "expected_intent": "QA_GENERATE",
+      "expected_keywords": [
+        "question"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0012_saas_agreement_conversational",
+      "category": "conversational",
+      "contract_id": "saas_agreement",
+      "contract_file": "tests/fixtures/contracts/saas_agreement.md",
+      "contract_name": "Saas Agreement",
+      "query": "Hello, what can you do?",
+      "expected_intent": "CONVERSATIONAL",
+      "expected_keywords": [
+        "help",
+        "can do"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0013_saas_agreement_clause_q_ARTICLE_1_-_DEFINITIONS\n\n###_1.1_\"Agreement\"_means_this_SaaS_Agreement_including_all_Exhibits_and_Schedules.\n\n###_1.2_\"Confidential_Information\"_means_all_non-public_information_disclosed_by_one_party_to_the_other,_whether_orally_or_in_writing,_that_is_designated_as_confidential_or_that_reasonably_should_be_understood_to_be_confidential.\n\n###_1.3_\"Documentation\"_means_Provider's_user_guides,_documentation,_and_specifications_for_the_Service.\n\n###_1.4_\"Service\"_means_the_software-as-a-service_platform_known_as_\"CloudServe_Enterprise\"_as_described_in_Exhibit_A.\n\n###_1.5_\"Subscription_Term\"_means_the_period_during_which_Customer_is_authorized_to_access_and_use_the_Service,_as_specified_in_Exhibit_B.\n\n##_ARTICLE_2_-_SUBSCRIPTION_AND_ACCESS\n\n###_2.1_Subscription_Grant\nSubject_to_the_terms_of_this_Agreement_and_payment_of_applicable_fees,_Provider_grants_Customer_a_non-exclusive,_non-transferable_right_to_access_and_use_the_Service_during_the_Subscription_Term.\n\n###_2.2_User_Limits\nCustomer's_access_is_limited_to_the_number_of_Authorized_Users_specified_in_Exhibit_B._Customer_may_increase_the_number_of_Authorized_Users_upon_written_notice_and_payment_of_applicable_fees.\n\n###_2.3_Restrictions\nCustomer_shall_not",
+      "category": "clause_analysis",
+      "contract_id": "saas_agreement",
+      "contract_file": "tests/fixtures/contracts/saas_agreement.md",
+      "contract_name": "Saas Agreement",
+      "query": "What does ARTICLE 1 - DEFINITIONS\n\n### 1.1 \"Agreement\" means this SaaS Agreement including all Exhibits and Schedules.\n\n### 1.2 \"Confidential Information\" means all non-public information disclosed by one party to the other, whether orally or in writing, that is designated as confidential or that reasonably should be understood to be confidential.\n\n### 1.3 \"Documentation\" means Provider's user guides, documentation, and specifications for the Service.\n\n### 1.4 \"Service\" means the software-as-a-service platform known as \"CloudServe Enterprise\" as described in Exhibit A.\n\n### 1.5 \"Subscription Term\" means the period during which Customer is authorized to access and use the Service, as specified in Exhibit B.\n\n## ARTICLE 2 - SUBSCRIPTION AND ACCESS\n\n### 2.1 Subscription Grant\nSubject to the terms of this Agreement and payment of applicable fees, Provider grants Customer a non-exclusive, non-transferable right to access and use the Service during the Subscription Term.\n\n### 2.2 User Limits\nCustomer's access is limited to the number of Authorized Users specified in Exhibit B. Customer may increase the number of Authorized Users upon written notice and payment of applicable fees.\n\n### 2.3 Restrictions\nCustomer shall not say about (a) permit unauthorized access to the Service; (b) use the Service for illegal purposes; (c) attempt to gain unauthorized access to the Service; (d) use the Service to store or transmit malicious code; or (e) reverse engineer, decompile, or disassemble the Service.?",
+      "expected_intent": "CLAUSE_LOOKUP",
+      "expected_agent": "ClauseAgent",
+      "expected_sections": [
+        "ARTICLE 1 - DEFINITIONS\n\n### 1.1 \"Agreement\" means this SaaS Agreement including all Exhibits and Schedules.\n\n### 1.2 \"Confidential Information\" means all non-public information disclosed by one party to the other, whether orally or in writing, that is designated as confidential or that reasonably should be understood to be confidential.\n\n### 1.3 \"Documentation\" means Provider's user guides, documentation, and specifications for the Service.\n\n### 1.4 \"Service\" means the software-as-a-service platform known as \"CloudServe Enterprise\" as described in Exhibit A.\n\n### 1.5 \"Subscription Term\" means the period during which Customer is authorized to access and use the Service, as specified in Exhibit B.\n\n## ARTICLE 2 - SUBSCRIPTION AND ACCESS\n\n### 2.1 Subscription Grant\nSubject to the terms of this Agreement and payment of applicable fees, Provider grants Customer a non-exclusive, non-transferable right to access and use the Service during the Subscription Term.\n\n### 2.2 User Limits\nCustomer's access is limited to the number of Authorized Users specified in Exhibit B. Customer may increase the number of Authorized Users upon written notice and payment of applicable fees.\n\n### 2.3 Restrictions\nCustomer shall not"
+      ],
+      "expected_keywords": [
+        "(a) permit unauthorized access to the Service; (b) use the Service for illegal purposes; (c) attempt to gain unauthorized access to the Service; (d) use the Service to store or transmit malicious code; or (e) reverse engineer, decompile, or disassemble the Service."
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0014_saas_agreement_clause_q_ARTICLE_3_-_SERVICE_LEVEL_AGREEMENT\n\n###_3.1_Uptime_Commitment\nProvider_shall_maintain_uptime_availability_of_ninety-nine_percent_(99.0%)_during_normal_business_hours_and_ninety-nine_percent_(99.0%)_overall_in_any_given_calendar_month.\n\n###_3.2_Downtime_Exclusions\nDowntime_does_not_include",
+      "category": "clause_analysis",
+      "contract_id": "saas_agreement",
+      "contract_file": "tests/fixtures/contracts/saas_agreement.md",
+      "contract_name": "Saas Agreement",
+      "query": "What does ARTICLE 3 - SERVICE LEVEL AGREEMENT\n\n### 3.1 Uptime Commitment\nProvider shall maintain uptime availability of ninety-nine percent (99.0%) during normal business hours and ninety-nine percent (99.0%) overall in any given calendar month.\n\n### 3.2 Downtime Exclusions\nDowntime does not include say about (a) scheduled maintenance with at least 48 hours prior notice; (b) emergency maintenance; (c) Customer's equipment or network issues; (d) force majeure events.?",
+      "expected_intent": "CLAUSE_LOOKUP",
+      "expected_agent": "ClauseAgent",
+      "expected_sections": [
+        "ARTICLE 3 - SERVICE LEVEL AGREEMENT\n\n### 3.1 Uptime Commitment\nProvider shall maintain uptime availability of ninety-nine percent (99.0%) during normal business hours and ninety-nine percent (99.0%) overall in any given calendar month.\n\n### 3.2 Downtime Exclusions\nDowntime does not include"
+      ],
+      "expected_keywords": [
+        "(a) scheduled maintenance with at least 48 hours prior notice; (b) emergency maintenance; (c) Customer's equipment or network issues; (d) force majeure events."
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0015_saas_agreement_clause_q_ARTICLE_4_-_FEES_AND_PAYMENT\n\n###_4.1_Subscription_Fees\nCustomer_shall_pay_the_subscription_fees_specified_in_Exhibit_B._All_fees_are_non-refundable_and_payable_in_United_States_Dollars.\n\n###_4.2_Payment_Terms\nFees_are_payable_annually_in_advance._Late_payments_shall_accrue_interest_at_the_rate_of_1.5%_per_month_or_the_maximum_rate_permitted_by_law,_whichever_is_lower.\n\n###_4.3_Price_Increases\nProvider_may_increase_subscription_fees_upon_renewal_by_providing_ninety_(90)_days_prior_written_notice._Price_increases_shall_not_exceed_fifteen_percent_(15%)_of_the_prior_year's_fees.\n\n###_4.4_Taxes\nFees_are_exclusive_of_taxes._Customer_is_responsible_for_all_sales,_use,_and_value-added_taxes_associated_with_the_Service.\n\n##_ARTICLE_5_-_DATA_SECURITY_AND_PRIVACY\n\n###_5.1_Security_Measures\nProvider_shall_implement_and_maintain_reasonable_administrative,_physical,_and_technical_safeguards_to_protect_Customer_Data,_including_encryption_in_transit_and_at_rest.\n\n###_5.2_Data_Breach_Notification\nProvider_shall_notify_Customer_within_seventy-two_(72)_hours_of_becoming_aware_of_any_unauthorized_access_to_Customer_Data.\n\n###_5.3_Compliance\nProvider_shall_comply_with_applicable_data_protection_laws_including_GDPR_for_EU_personal_data_and_CCPA_for_California_personal_information.\n\n##_ARTICLE_6_-_INTELLECTUAL_PROPERTY\n\n###_6.1_Provider_IP\nProvider_retains_all_rights,_title,_and_interest_in_and_to_the_Service,_Documentation,_and_any_modifications_or_improvements_thereto.\n\n###_6.2_Customer_Data\nCustomer_retains_all_rights,_title,_and_interest_in_and_to_Customer_Data._Customer_grants_Provider_a_limited_license_to_host,_copy,_and_transmit_Customer_Data_solely_for_providing_the_Service.\n\n###_6.3_Feedback\nCustomer_grants_Provider_a_perpetual,_irrevocable,_royalty-free_license_to_use_any_feedback_provided_about_the_Service.\n\n##_ARTICLE_7_-_CONFIDENTIALITY\n\n###_7.1_Obligations\nEach_party_shall",
+      "category": "clause_analysis",
+      "contract_id": "saas_agreement",
+      "contract_file": "tests/fixtures/contracts/saas_agreement.md",
+      "contract_name": "Saas Agreement",
+      "query": "What does ARTICLE 4 - FEES AND PAYMENT\n\n### 4.1 Subscription Fees\nCustomer shall pay the subscription fees specified in Exhibit B. All fees are non-refundable and payable in United States Dollars.\n\n### 4.2 Payment Terms\nFees are payable annually in advance. Late payments shall accrue interest at the rate of 1.5% per month or the maximum rate permitted by law, whichever is lower.\n\n### 4.3 Price Increases\nProvider may increase subscription fees upon renewal by providing ninety (90) days prior written notice. Price increases shall not exceed fifteen percent (15%) of the prior year's fees.\n\n### 4.4 Taxes\nFees are exclusive of taxes. Customer is responsible for all sales, use, and value-added taxes associated with the Service.\n\n## ARTICLE 5 - DATA SECURITY AND PRIVACY\n\n### 5.1 Security Measures\nProvider shall implement and maintain reasonable administrative, physical, and technical safeguards to protect Customer Data, including encryption in transit and at rest.\n\n### 5.2 Data Breach Notification\nProvider shall notify Customer within seventy-two (72) hours of becoming aware of any unauthorized access to Customer Data.\n\n### 5.3 Compliance\nProvider shall comply with applicable data protection laws including GDPR for EU personal data and CCPA for California personal information.\n\n## ARTICLE 6 - INTELLECTUAL PROPERTY\n\n### 6.1 Provider IP\nProvider retains all rights, title, and interest in and to the Service, Documentation, and any modifications or improvements thereto.\n\n### 6.2 Customer Data\nCustomer retains all rights, title, and interest in and to Customer Data. Customer grants Provider a limited license to host, copy, and transmit Customer Data solely for providing the Service.\n\n### 6.3 Feedback\nCustomer grants Provider a perpetual, irrevocable, royalty-free license to use any feedback provided about the Service.\n\n## ARTICLE 7 - CONFIDENTIALITY\n\n### 7.1 Obligations\nEach party shall say about (a) protect Confidential Information using reasonable care; (b) not disclose Confidential Information to third parties except to employees and advisors with a need to know; (c) use Confidential Information only for purposes of this Agreement.?",
+      "expected_intent": "CLAUSE_LOOKUP",
+      "expected_agent": "ClauseAgent",
+      "expected_sections": [
+        "ARTICLE 4 - FEES AND PAYMENT\n\n### 4.1 Subscription Fees\nCustomer shall pay the subscription fees specified in Exhibit B. All fees are non-refundable and payable in United States Dollars.\n\n### 4.2 Payment Terms\nFees are payable annually in advance. Late payments shall accrue interest at the rate of 1.5% per month or the maximum rate permitted by law, whichever is lower.\n\n### 4.3 Price Increases\nProvider may increase subscription fees upon renewal by providing ninety (90) days prior written notice. Price increases shall not exceed fifteen percent (15%) of the prior year's fees.\n\n### 4.4 Taxes\nFees are exclusive of taxes. Customer is responsible for all sales, use, and value-added taxes associated with the Service.\n\n## ARTICLE 5 - DATA SECURITY AND PRIVACY\n\n### 5.1 Security Measures\nProvider shall implement and maintain reasonable administrative, physical, and technical safeguards to protect Customer Data, including encryption in transit and at rest.\n\n### 5.2 Data Breach Notification\nProvider shall notify Customer within seventy-two (72) hours of becoming aware of any unauthorized access to Customer Data.\n\n### 5.3 Compliance\nProvider shall comply with applicable data protection laws including GDPR for EU personal data and CCPA for California personal information.\n\n## ARTICLE 6 - INTELLECTUAL PROPERTY\n\n### 6.1 Provider IP\nProvider retains all rights, title, and interest in and to the Service, Documentation, and any modifications or improvements thereto.\n\n### 6.2 Customer Data\nCustomer retains all rights, title, and interest in and to Customer Data. Customer grants Provider a limited license to host, copy, and transmit Customer Data solely for providing the Service.\n\n### 6.3 Feedback\nCustomer grants Provider a perpetual, irrevocable, royalty-free license to use any feedback provided about the Service.\n\n## ARTICLE 7 - CONFIDENTIALITY\n\n### 7.1 Obligations\nEach party shall"
+      ],
+      "expected_keywords": [
+        "(a) protect Confidential Information using reasonable care; (b) not disclose Confidential Information to third parties except to employees and advisors with a need to know; (c) use Confidential Information only for purposes of this Agreement."
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0016_saas_agreement_clause_q_ARTICLE_8_-_WARRANTIES_AND_DISCLAIMERS\n\n###_8.1_Mutual_Warranty\nEach_party_represents_and_warrants_that_it_has_the_authority_to_enter_into_this_Agreement.\n\n###_8.2_Service_Warranty\nProvider_warrants_that_the_Service_will_perform_substantially_in_accordance_with_the_Documentation_under_normal_use.\n\n###_8.3_Disclaimer\nEXCEPT_AS_EXPRESSLY_STATED,_THE_SERVICE_IS_PROVIDED_\"AS_IS\"_WITHOUT_WARRANTY_OF_ANY_KIND,_EXPRESS_OR_IMPLIED,_INCLUDING_BUT_NOT_LIMITED_TO_WARRANTIES_OF_MERCHANTABILITY,_FITNESS_FOR_A_PARTICULAR_PURPOSE,_OR_NON-INFRINGEMENT.\n\n##_ARTICLE_9_-_LIMITATION_OF_LIABILITY\n\n###_9.1_Consequential_Damages_Waiver\nNEITHER_PARTY_SHALL_BE_LIABLE_FOR_INDIRECT,_INCIDENTAL,_SPECIAL,_CONSEQUENTIAL,_OR_PUNITIVE_DAMAGES,_OR_LOST_PROFITS,_REGARDLESS_OF_THE_CAUSE_OF_ACTION_AND_EVEN_IF_ADVISED_OF_THE_POSSIBILITY_OF_SUCH_DAMAGES.\n\n###_9.2_Liability_Cap\nEXCEPT_FOR_BREACHES_OF_SECTION_2.3_(RESTRICTIONS),_SECTION_7_(CONFIDENTIALITY),_OR_CUSTOMER'S_PAYMENT_OBLIGATIONS,_EACH_PARTY'S_TOTAL_AGGREGATE_LIABILITY_SHALL_NOT_EXCEED_THE_FEES_PAID_OR_PAYABLE_BY_CUSTOMER_IN_THE_TWELVE_(12)_MONTHS_PRECEDING_THE_CLAIM.\n\n###_9.3_Exceptions\nThe_liability_cap_shall_not_apply_to",
+      "category": "clause_analysis",
+      "contract_id": "saas_agreement",
+      "contract_file": "tests/fixtures/contracts/saas_agreement.md",
+      "contract_name": "Saas Agreement",
+      "query": "What does ARTICLE 8 - WARRANTIES AND DISCLAIMERS\n\n### 8.1 Mutual Warranty\nEach party represents and warrants that it has the authority to enter into this Agreement.\n\n### 8.2 Service Warranty\nProvider warrants that the Service will perform substantially in accordance with the Documentation under normal use.\n\n### 8.3 Disclaimer\nEXCEPT AS EXPRESSLY STATED, THE SERVICE IS PROVIDED \"AS IS\" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, OR NON-INFRINGEMENT.\n\n## ARTICLE 9 - LIMITATION OF LIABILITY\n\n### 9.1 Consequential Damages Waiver\nNEITHER PARTY SHALL BE LIABLE FOR INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR LOST PROFITS, REGARDLESS OF THE CAUSE OF ACTION AND EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.\n\n### 9.2 Liability Cap\nEXCEPT FOR BREACHES OF SECTION 2.3 (RESTRICTIONS), SECTION 7 (CONFIDENTIALITY), OR CUSTOMER'S PAYMENT OBLIGATIONS, EACH PARTY'S TOTAL AGGREGATE LIABILITY SHALL NOT EXCEED THE FEES PAID OR PAYABLE BY CUSTOMER IN THE TWELVE (12) MONTHS PRECEDING THE CLAIM.\n\n### 9.3 Exceptions\nThe liability cap shall not apply to say about (a) breaches of confidentiality obligations; (b) infringement of intellectual property rights; (c) gross negligence or willful misconduct; (d) amounts owed for payment obligations.?",
+      "expected_intent": "CLAUSE_LOOKUP",
+      "expected_agent": "ClauseAgent",
+      "expected_sections": [
+        "ARTICLE 8 - WARRANTIES AND DISCLAIMERS\n\n### 8.1 Mutual Warranty\nEach party represents and warrants that it has the authority to enter into this Agreement.\n\n### 8.2 Service Warranty\nProvider warrants that the Service will perform substantially in accordance with the Documentation under normal use.\n\n### 8.3 Disclaimer\nEXCEPT AS EXPRESSLY STATED, THE SERVICE IS PROVIDED \"AS IS\" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, OR NON-INFRINGEMENT.\n\n## ARTICLE 9 - LIMITATION OF LIABILITY\n\n### 9.1 Consequential Damages Waiver\nNEITHER PARTY SHALL BE LIABLE FOR INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR LOST PROFITS, REGARDLESS OF THE CAUSE OF ACTION AND EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.\n\n### 9.2 Liability Cap\nEXCEPT FOR BREACHES OF SECTION 2.3 (RESTRICTIONS), SECTION 7 (CONFIDENTIALITY), OR CUSTOMER'S PAYMENT OBLIGATIONS, EACH PARTY'S TOTAL AGGREGATE LIABILITY SHALL NOT EXCEED THE FEES PAID OR PAYABLE BY CUSTOMER IN THE TWELVE (12) MONTHS PRECEDING THE CLAIM.\n\n### 9.3 Exceptions\nThe liability cap shall not apply to"
+      ],
+      "expected_keywords": [
+        "(a) breaches of confidentiality obligations; (b) infringement of intellectual property rights; (c) gross negligence or willful misconduct; (d) amounts owed for payment obligations."
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0017_saas_agreement_clause_q_ARTICLE_10_-_TERM_AND_TERMINATION\n\n###_10.1_Initial_Term\nThis_Agreement_shall_commence_on_the_Effective_Date_and_continue_for_the_Initial_Term_specified_in_Exhibit_B.\n\n###_10.2_Renewal\nThis_Agreement_shall_automatically_renew_for_successive_one_(1)_year_periods_unless_either_party_provides_written_notice_of_non-renewal_at_least_ninety_(90)_days_prior_to_the_end_of_the_then-current_term.\n\n###_10.3_Termination_for_Cause\nEither_party_may_terminate_this_Agreement_for_material_breach_if_the_breaching_party_fails_to_cure_such_breach_within_thirty_(30)_days_after_written_notice.\n\n###_10.4_Insolvency\nEither_party_may_terminate_immediately_upon_written_notice_if_the_other_party_becomes_insolvent,_files_for_bankruptcy,_or_ceases_business_operations.\n\n###_10.5_Effect_of_Termination\nUpon_termination",
+      "category": "clause_analysis",
+      "contract_id": "saas_agreement",
+      "contract_file": "tests/fixtures/contracts/saas_agreement.md",
+      "contract_name": "Saas Agreement",
+      "query": "What does ARTICLE 10 - TERM AND TERMINATION\n\n### 10.1 Initial Term\nThis Agreement shall commence on the Effective Date and continue for the Initial Term specified in Exhibit B.\n\n### 10.2 Renewal\nThis Agreement shall automatically renew for successive one (1) year periods unless either party provides written notice of non-renewal at least ninety (90) days prior to the end of the then-current term.\n\n### 10.3 Termination for Cause\nEither party may terminate this Agreement for material breach if the breaching party fails to cure such breach within thirty (30) days after written notice.\n\n### 10.4 Insolvency\nEither party may terminate immediately upon written notice if the other party becomes insolvent, files for bankruptcy, or ceases business operations.\n\n### 10.5 Effect of Termination\nUpon termination say about (a) all unpaid fees become immediately due; (b) Customer shall cease using the Service; (c) Provider shall return or destroy Customer Data within sixty (60) days.?",
+      "expected_intent": "CLAUSE_LOOKUP",
+      "expected_agent": "ClauseAgent",
+      "expected_sections": [
+        "ARTICLE 10 - TERM AND TERMINATION\n\n### 10.1 Initial Term\nThis Agreement shall commence on the Effective Date and continue for the Initial Term specified in Exhibit B.\n\n### 10.2 Renewal\nThis Agreement shall automatically renew for successive one (1) year periods unless either party provides written notice of non-renewal at least ninety (90) days prior to the end of the then-current term.\n\n### 10.3 Termination for Cause\nEither party may terminate this Agreement for material breach if the breaching party fails to cure such breach within thirty (30) days after written notice.\n\n### 10.4 Insolvency\nEither party may terminate immediately upon written notice if the other party becomes insolvent, files for bankruptcy, or ceases business operations.\n\n### 10.5 Effect of Termination\nUpon termination"
+      ],
+      "expected_keywords": [
+        "(a) all unpaid fees become immediately due; (b) Customer shall cease using the Service; (c) Provider shall return or destroy Customer Data within sixty (60) days."
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0018_saas_agreement_obligation_specific_0",
+      "category": "obligation_tracking",
+      "contract_id": "saas_agreement",
+      "contract_file": "tests/fixtures/contracts/saas_agreement.md",
+      "contract_name": "Saas Agreement",
+      "query": "What obligations does the supplier have?",
+      "expected_intent": "OBLIGATION_TRACK",
+      "expected_agent": "ObligationAgent",
+      "expected_keywords": [
+        "shall",
+        "must",
+        "obligated"
+      ],
+      "ragas_ground_truth": "ight to access and use the Service during the Subscription Term.\n\n### 2.2 User Limits\nCustomer's access is limited to the number of Authorized Users s"
+    },
+    {
+      "id": "case_0019_saas_agreement_risk_ARTICLE_1_-_DEFINITIONS\n\n###_1.1_\"Agreement\"_means_this_SaaS_Agreement_including_all_Exhibits_and_Schedules.\n\n###_1.2_\"Confidential_Information\"_means_all_non-public_information_disclosed_by_one_party_to_the_other,_whether_orally_or_in_writing,_that_is_designated_as_confidential_or_that_reasonably_should_be_understood_to_be_confidential.\n\n###_1.3_\"Documentation\"_means_Provider's_user_guides,_documentation,_and_specifications_for_the_Service.\n\n###_1.4_\"Service\"_means_the_software-as-a-service_platform_known_as_\"CloudServe_Enterprise\"_as_described_in_Exhibit_A.\n\n###_1.5_\"Subscription_Term\"_means_the_period_during_which_Customer_is_authorized_to_access_and_use_the_Service,_as_specified_in_Exhibit_B.\n\n##_ARTICLE_2_-_SUBSCRIPTION_AND_ACCESS\n\n###_2.1_Subscription_Grant\nSubject_to_the_terms_of_this_Agreement_and_payment_of_applicable_fees,_Provider_grants_Customer_a_non-exclusive,_non-transferable_right_to_access_and_use_the_Service_during_the_Subscription_Term.\n\n###_2.2_User_Limits\nCustomer's_access_is_limited_to_the_number_of_Authorized_Users_specified_in_Exhibit_B._Customer_may_increase_the_number_of_Authorized_Users_upon_written_notice_and_payment_of_applicable_fees.\n\n###_2.3_Restrictions\nCustomer_shall_not",
+      "category": "risk_detection",
+      "contract_id": "saas_agreement",
+      "contract_file": "tests/fixtures/contracts/saas_agreement.md",
+      "contract_name": "Saas Agreement",
+      "query": "What are the risks in ARTICLE 1 - DEFINITIONS\n\n### 1.1 \"Agreement\" means this SaaS Agreement including all Exhibits and Schedules.\n\n### 1.2 \"Confidential Information\" means all non-public information disclosed by one party to the other, whether orally or in writing, that is designated as confidential or that reasonably should be understood to be confidential.\n\n### 1.3 \"Documentation\" means Provider's user guides, documentation, and specifications for the Service.\n\n### 1.4 \"Service\" means the software-as-a-service platform known as \"CloudServe Enterprise\" as described in Exhibit A.\n\n### 1.5 \"Subscription Term\" means the period during which Customer is authorized to access and use the Service, as specified in Exhibit B.\n\n## ARTICLE 2 - SUBSCRIPTION AND ACCESS\n\n### 2.1 Subscription Grant\nSubject to the terms of this Agreement and payment of applicable fees, Provider grants Customer a non-exclusive, non-transferable right to access and use the Service during the Subscription Term.\n\n### 2.2 User Limits\nCustomer's access is limited to the number of Authorized Users specified in Exhibit B. Customer may increase the number of Authorized Users upon written notice and payment of applicable fees.\n\n### 2.3 Restrictions\nCustomer shall not?",
+      "expected_intent": "RISK_ANALYSIS",
+      "expected_agent": "RiskAgent",
+      "expected_sections": [
+        "ARTICLE 1 - DEFINITIONS\n\n### 1.1 \"Agreement\" means this SaaS Agreement including all Exhibits and Schedules.\n\n### 1.2 \"Confidential Information\" means all non-public information disclosed by one party to the other, whether orally or in writing, that is designated as confidential or that reasonably should be understood to be confidential.\n\n### 1.3 \"Documentation\" means Provider's user guides, documentation, and specifications for the Service.\n\n### 1.4 \"Service\" means the software-as-a-service platform known as \"CloudServe Enterprise\" as described in Exhibit A.\n\n### 1.5 \"Subscription Term\" means the period during which Customer is authorized to access and use the Service, as specified in Exhibit B.\n\n## ARTICLE 2 - SUBSCRIPTION AND ACCESS\n\n### 2.1 Subscription Grant\nSubject to the terms of this Agreement and payment of applicable fees, Provider grants Customer a non-exclusive, non-transferable right to access and use the Service during the Subscription Term.\n\n### 2.2 User Limits\nCustomer's access is limited to the number of Authorized Users specified in Exhibit B. Customer may increase the number of Authorized Users upon written notice and payment of applicable fees.\n\n### 2.3 Restrictions\nCustomer shall not"
+      ],
+      "expected_keywords": [
+        "risk",
+        "liability",
+        "termination",
+        "damages"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0020_saas_agreement_risk_ARTICLE_3_-_SERVICE_LEVEL_AGREEMENT\n\n###_3.1_Uptime_Commitment\nProvider_shall_maintain_uptime_availability_of_ninety-nine_percent_(99.0%)_during_normal_business_hours_and_ninety-nine_percent_(99.0%)_overall_in_any_given_calendar_month.\n\n###_3.2_Downtime_Exclusions\nDowntime_does_not_include",
+      "category": "risk_detection",
+      "contract_id": "saas_agreement",
+      "contract_file": "tests/fixtures/contracts/saas_agreement.md",
+      "contract_name": "Saas Agreement",
+      "query": "What are the risks in ARTICLE 3 - SERVICE LEVEL AGREEMENT\n\n### 3.1 Uptime Commitment\nProvider shall maintain uptime availability of ninety-nine percent (99.0%) during normal business hours and ninety-nine percent (99.0%) overall in any given calendar month.\n\n### 3.2 Downtime Exclusions\nDowntime does not include?",
+      "expected_intent": "RISK_ANALYSIS",
+      "expected_agent": "RiskAgent",
+      "expected_sections": [
+        "ARTICLE 3 - SERVICE LEVEL AGREEMENT\n\n### 3.1 Uptime Commitment\nProvider shall maintain uptime availability of ninety-nine percent (99.0%) during normal business hours and ninety-nine percent (99.0%) overall in any given calendar month.\n\n### 3.2 Downtime Exclusions\nDowntime does not include"
+      ],
+      "expected_keywords": [
+        "risk",
+        "liability",
+        "termination",
+        "damages"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0021_saas_agreement_risk_ARTICLE_4_-_FEES_AND_PAYMENT\n\n###_4.1_Subscription_Fees\nCustomer_shall_pay_the_subscription_fees_specified_in_Exhibit_B._All_fees_are_non-refundable_and_payable_in_United_States_Dollars.\n\n###_4.2_Payment_Terms\nFees_are_payable_annually_in_advance._Late_payments_shall_accrue_interest_at_the_rate_of_1.5%_per_month_or_the_maximum_rate_permitted_by_law,_whichever_is_lower.\n\n###_4.3_Price_Increases\nProvider_may_increase_subscription_fees_upon_renewal_by_providing_ninety_(90)_days_prior_written_notice._Price_increases_shall_not_exceed_fifteen_percent_(15%)_of_the_prior_year's_fees.\n\n###_4.4_Taxes\nFees_are_exclusive_of_taxes._Customer_is_responsible_for_all_sales,_use,_and_value-added_taxes_associated_with_the_Service.\n\n##_ARTICLE_5_-_DATA_SECURITY_AND_PRIVACY\n\n###_5.1_Security_Measures\nProvider_shall_implement_and_maintain_reasonable_administrative,_physical,_and_technical_safeguards_to_protect_Customer_Data,_including_encryption_in_transit_and_at_rest.\n\n###_5.2_Data_Breach_Notification\nProvider_shall_notify_Customer_within_seventy-two_(72)_hours_of_becoming_aware_of_any_unauthorized_access_to_Customer_Data.\n\n###_5.3_Compliance\nProvider_shall_comply_with_applicable_data_protection_laws_including_GDPR_for_EU_personal_data_and_CCPA_for_California_personal_information.\n\n##_ARTICLE_6_-_INTELLECTUAL_PROPERTY\n\n###_6.1_Provider_IP\nProvider_retains_all_rights,_title,_and_interest_in_and_to_the_Service,_Documentation,_and_any_modifications_or_improvements_thereto.\n\n###_6.2_Customer_Data\nCustomer_retains_all_rights,_title,_and_interest_in_and_to_Customer_Data._Customer_grants_Provider_a_limited_license_to_host,_copy,_and_transmit_Customer_Data_solely_for_providing_the_Service.\n\n###_6.3_Feedback\nCustomer_grants_Provider_a_perpetual,_irrevocable,_royalty-free_license_to_use_any_feedback_provided_about_the_Service.\n\n##_ARTICLE_7_-_CONFIDENTIALITY\n\n###_7.1_Obligations\nEach_party_shall",
+      "category": "risk_detection",
+      "contract_id": "saas_agreement",
+      "contract_file": "tests/fixtures/contracts/saas_agreement.md",
+      "contract_name": "Saas Agreement",
+      "query": "What are the risks in ARTICLE 4 - FEES AND PAYMENT\n\n### 4.1 Subscription Fees\nCustomer shall pay the subscription fees specified in Exhibit B. All fees are non-refundable and payable in United States Dollars.\n\n### 4.2 Payment Terms\nFees are payable annually in advance. Late payments shall accrue interest at the rate of 1.5% per month or the maximum rate permitted by law, whichever is lower.\n\n### 4.3 Price Increases\nProvider may increase subscription fees upon renewal by providing ninety (90) days prior written notice. Price increases shall not exceed fifteen percent (15%) of the prior year's fees.\n\n### 4.4 Taxes\nFees are exclusive of taxes. Customer is responsible for all sales, use, and value-added taxes associated with the Service.\n\n## ARTICLE 5 - DATA SECURITY AND PRIVACY\n\n### 5.1 Security Measures\nProvider shall implement and maintain reasonable administrative, physical, and technical safeguards to protect Customer Data, including encryption in transit and at rest.\n\n### 5.2 Data Breach Notification\nProvider shall notify Customer within seventy-two (72) hours of becoming aware of any unauthorized access to Customer Data.\n\n### 5.3 Compliance\nProvider shall comply with applicable data protection laws including GDPR for EU personal data and CCPA for California personal information.\n\n## ARTICLE 6 - INTELLECTUAL PROPERTY\n\n### 6.1 Provider IP\nProvider retains all rights, title, and interest in and to the Service, Documentation, and any modifications or improvements thereto.\n\n### 6.2 Customer Data\nCustomer retains all rights, title, and interest in and to Customer Data. Customer grants Provider a limited license to host, copy, and transmit Customer Data solely for providing the Service.\n\n### 6.3 Feedback\nCustomer grants Provider a perpetual, irrevocable, royalty-free license to use any feedback provided about the Service.\n\n## ARTICLE 7 - CONFIDENTIALITY\n\n### 7.1 Obligations\nEach party shall?",
+      "expected_intent": "RISK_ANALYSIS",
+      "expected_agent": "RiskAgent",
+      "expected_sections": [
+        "ARTICLE 4 - FEES AND PAYMENT\n\n### 4.1 Subscription Fees\nCustomer shall pay the subscription fees specified in Exhibit B. All fees are non-refundable and payable in United States Dollars.\n\n### 4.2 Payment Terms\nFees are payable annually in advance. Late payments shall accrue interest at the rate of 1.5% per month or the maximum rate permitted by law, whichever is lower.\n\n### 4.3 Price Increases\nProvider may increase subscription fees upon renewal by providing ninety (90) days prior written notice. Price increases shall not exceed fifteen percent (15%) of the prior year's fees.\n\n### 4.4 Taxes\nFees are exclusive of taxes. Customer is responsible for all sales, use, and value-added taxes associated with the Service.\n\n## ARTICLE 5 - DATA SECURITY AND PRIVACY\n\n### 5.1 Security Measures\nProvider shall implement and maintain reasonable administrative, physical, and technical safeguards to protect Customer Data, including encryption in transit and at rest.\n\n### 5.2 Data Breach Notification\nProvider shall notify Customer within seventy-two (72) hours of becoming aware of any unauthorized access to Customer Data.\n\n### 5.3 Compliance\nProvider shall comply with applicable data protection laws including GDPR for EU personal data and CCPA for California personal information.\n\n## ARTICLE 6 - INTELLECTUAL PROPERTY\n\n### 6.1 Provider IP\nProvider retains all rights, title, and interest in and to the Service, Documentation, and any modifications or improvements thereto.\n\n### 6.2 Customer Data\nCustomer retains all rights, title, and interest in and to Customer Data. Customer grants Provider a limited license to host, copy, and transmit Customer Data solely for providing the Service.\n\n### 6.3 Feedback\nCustomer grants Provider a perpetual, irrevocable, royalty-free license to use any feedback provided about the Service.\n\n## ARTICLE 7 - CONFIDENTIALITY\n\n### 7.1 Obligations\nEach party shall"
+      ],
+      "expected_keywords": [
+        "risk",
+        "liability",
+        "termination",
+        "damages"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0022_saas_agreement_general_governing_law",
+      "category": "general_query",
+      "contract_id": "saas_agreement",
+      "contract_file": "tests/fixtures/contracts/saas_agreement.md",
+      "contract_name": "Saas Agreement",
+      "query": "What is the governing law?",
+      "expected_intent": "GENERAL_QUERY",
+      "expected_keywords": [
+        "governing law",
+        "jurisdiction"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0023_saas_agreement_general_termination",
+      "category": "general_query",
+      "contract_id": "saas_agreement",
+      "contract_file": "tests/fixtures/contracts/saas_agreement.md",
+      "contract_name": "Saas Agreement",
+      "query": "How can this contract be terminated?",
+      "expected_intent": "GENERAL_QUERY",
+      "expected_keywords": [
+        "termination",
+        "terminate",
+        "notice"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0024_saas_agreement_conv_thanks",
+      "category": "conversational",
+      "contract_id": "saas_agreement",
+      "contract_file": "tests/fixtures/contracts/saas_agreement.md",
+      "contract_name": "Saas Agreement",
+      "query": "Thank you for your help.",
+      "expected_intent": "CONVERSATIONAL",
+      "expected_keywords": [
+        "welcome"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0025_saas_agreement_conv_capabilities",
+      "category": "conversational",
+      "contract_id": "saas_agreement",
+      "contract_file": "tests/fixtures/contracts/saas_agreement.md",
+      "contract_name": "Saas Agreement",
+      "query": "What can you help me with?",
+      "expected_intent": "CONVERSATIONAL",
+      "expected_keywords": [
+        "help",
+        "capabilities"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0026_saas_agreement_redflags",
+      "category": "redflags",
+      "contract_id": "saas_agreement",
+      "contract_file": "tests/fixtures/contracts/saas_agreement.md",
+      "contract_name": "Saas Agreement",
+      "query": "What red flags should I watch for?",
+      "expected_intent": "RISK_ANALYSIS",
+      "expected_agent": "RiskAgent",
+      "expected_keywords": [
+        "red flag",
+        "risk",
+        "warning"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0027_saas_agreement_qa_answer",
+      "category": "qa_answer",
+      "contract_id": "saas_agreement",
+      "contract_file": "tests/fixtures/contracts/saas_agreement.md",
+      "contract_name": "Saas Agreement",
+      "query": "What is the penalty for late delivery?",
+      "expected_intent": "QA_ANSWER",
+      "expected_keywords": [
+        "penalty",
+        "late",
+        "delivery"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0028_saas_agreement_compound_1",
+      "category": "compound_orchestration",
+      "contract_id": "saas_agreement",
+      "contract_file": "tests/fixtures/contracts/saas_agreement.md",
+      "contract_name": "Saas Agreement",
+      "query": "Explain ARTICLE 1 - DEFINITIONS\n\n### 1.1 \"Agreement\" means this SaaS Agreement including all Exhibits and Schedules.\n\n### 1.2 \"Confidential Information\" means all non-public information disclosed by one party to the other, whether orally or in writing, that is designated as confidential or that reasonably should be understood to be confidential.\n\n### 1.3 \"Documentation\" means Provider's user guides, documentation, and specifications for the Service.\n\n### 1.4 \"Service\" means the software-as-a-service platform known as \"CloudServe Enterprise\" as described in Exhibit A.\n\n### 1.5 \"Subscription Term\" means the period during which Customer is authorized to access and use the Service, as specified in Exhibit B.\n\n## ARTICLE 2 - SUBSCRIPTION AND ACCESS\n\n### 2.1 Subscription Grant\nSubject to the terms of this Agreement and payment of applicable fees, Provider grants Customer a non-exclusive, non-transferable right to access and use the Service during the Subscription Term.\n\n### 2.2 User Limits\nCustomer's access is limited to the number of Authorized Users specified in Exhibit B. Customer may increase the number of Authorized Users upon written notice and payment of applicable fees.\n\n### 2.3 Restrictions\nCustomer shall not and ARTICLE 3 - SERVICE LEVEL AGREEMENT\n\n### 3.1 Uptime Commitment\nProvider shall maintain uptime availability of ninety-nine percent (99.0%) during normal business hours and ninety-nine percent (99.0%) overall in any given calendar month.\n\n### 3.2 Downtime Exclusions\nDowntime does not include",
+      "expected_intent": "CLAUSE_LOOKUP",
+      "expected_sections": [
+        "ARTICLE 1 - DEFINITIONS\n\n### 1.1 \"Agreement\" means this SaaS Agreement including all Exhibits and Schedules.\n\n### 1.2 \"Confidential Information\" means all non-public information disclosed by one party to the other, whether orally or in writing, that is designated as confidential or that reasonably should be understood to be confidential.\n\n### 1.3 \"Documentation\" means Provider's user guides, documentation, and specifications for the Service.\n\n### 1.4 \"Service\" means the software-as-a-service platform known as \"CloudServe Enterprise\" as described in Exhibit A.\n\n### 1.5 \"Subscription Term\" means the period during which Customer is authorized to access and use the Service, as specified in Exhibit B.\n\n## ARTICLE 2 - SUBSCRIPTION AND ACCESS\n\n### 2.1 Subscription Grant\nSubject to the terms of this Agreement and payment of applicable fees, Provider grants Customer a non-exclusive, non-transferable right to access and use the Service during the Subscription Term.\n\n### 2.2 User Limits\nCustomer's access is limited to the number of Authorized Users specified in Exhibit B. Customer may increase the number of Authorized Users upon written notice and payment of applicable fees.\n\n### 2.3 Restrictions\nCustomer shall not",
+        "ARTICLE 3 - SERVICE LEVEL AGREEMENT\n\n### 3.1 Uptime Commitment\nProvider shall maintain uptime availability of ninety-nine percent (99.0%) during normal business hours and ninety-nine percent (99.0%) overall in any given calendar month.\n\n### 3.2 Downtime Exclusions\nDowntime does not include"
+      ],
+      "expected_keywords": [
+        "(a) permit unauthorized access to the Service; (b) use the Service for illegal purposes; (c) attempt to gain unauthorized access to the Service; (d) use the Service to store or transmit malicious code; or (e) reverse engineer, decompile, or disassemble the Service.",
+        "(a) scheduled maintenance with at least 48 hours prior notice; (b) emergency maintenance; (c) Customer's equipment or network issues; (d) force majeure events."
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0029_nda_simple_summary",
+      "category": "summary",
+      "contract_id": "nda_simple",
+      "contract_file": "tests/fixtures/contracts/nda_simple.md",
+      "contract_name": "Nda Simple",
+      "query": "Summarize this contract.",
+      "expected_intent": "SUMMARY",
+      "expected_agent": "SummaryAgent",
+      "expected_sections": [],
+      "expected_keywords": [
+        "effective date",
+        "parties"
+      ],
+      "ragas_ground_truth": "High-level summary of nda_simple."
+    },
+    {
+      "id": "case_0030_nda_simple_obligation_1",
+      "category": "obligation_tracking",
+      "contract_id": "nda_simple",
+      "contract_file": "tests/fixtures/contracts/nda_simple.md",
+      "contract_name": "Nda Simple",
+      "query": "What are the obligations in this contract?",
+      "expected_intent": "OBLIGATION_TRACK",
+      "expected_agent": "ObligationAgent",
+      "expected_keywords": [
+        "shall",
+        "must"
+      ],
+      "ragas_ground_truth": "(c) is rightfully received by the Receiving Party from a third party without breach of any confidentiality obligation; or (d) is independently developed by the Receiving Party without use of or refere"
+    },
+    {
+      "id": "case_0031_nda_simple_risk_1",
+      "category": "risk_detection",
+      "contract_id": "nda_simple",
+      "contract_file": "tests/fixtures/contracts/nda_simple.md",
+      "contract_name": "Nda Simple",
+      "query": "What are the main risks?",
+      "expected_intent": "RISK_ANALYSIS",
+      "expected_agent": "RiskAgent",
+      "expected_keywords": [
+        "termination",
+        "liability",
+        "damages"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0032_nda_simple_parties",
+      "category": "general_query",
+      "contract_id": "nda_simple",
+      "contract_file": "tests/fixtures/contracts/nda_simple.md",
+      "contract_name": "Nda Simple",
+      "query": "Who are the parties?",
+      "expected_intent": "GENERAL_QUERY",
+      "expected_keywords": [
+        "party",
+        "parties"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0033_nda_simple_key_dates",
+      "category": "key_dates",
+      "contract_id": "nda_simple",
+      "contract_file": "tests/fixtures/contracts/nda_simple.md",
+      "contract_name": "Nda Simple",
+      "query": "What are the key dates?",
+      "expected_intent": "GENERAL_QUERY",
+      "expected_keywords": [
+        "date",
+        "effective",
+        "term"
+      ],
+      "expected_values": {
+        "effective_date": "January 15, 2025"
+      },
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0034_nda_simple_compliance_1",
+      "category": "compliance",
+      "contract_id": "nda_simple",
+      "contract_file": "tests/fixtures/contracts/nda_simple.md",
+      "contract_name": "Nda Simple",
+      "query": "Generate a compliance report.",
+      "expected_intent": "COMPLIANCE",
+      "expected_keywords": [
+        "breach",
+        "penalty",
+        "KPI"
+      ],
+      "expected_tools": [
+        "generate_compliance_report"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0035_nda_simple_qa_generate",
+      "category": "qa_generation",
+      "contract_id": "nda_simple",
+      "contract_file": "tests/fixtures/contracts/nda_simple.md",
+      "contract_name": "Nda Simple",
+      "query": "What questions should I ask about this contract?",
+      "expected_intent": "QA_GENERATE",
+      "expected_keywords": [
+        "question"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0036_nda_simple_conversational",
+      "category": "conversational",
+      "contract_id": "nda_simple",
+      "contract_file": "tests/fixtures/contracts/nda_simple.md",
+      "contract_name": "Nda Simple",
+      "query": "Hello, what can you do?",
+      "expected_intent": "CONVERSATIONAL",
+      "expected_keywords": [
+        "help",
+        "can do"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0037_nda_simple_obligation_specific_0",
+      "category": "obligation_tracking",
+      "contract_id": "nda_simple",
+      "contract_file": "tests/fixtures/contracts/nda_simple.md",
+      "contract_name": "Nda Simple",
+      "query": "What obligations does the supplier have?",
+      "expected_intent": "OBLIGATION_TRACK",
+      "expected_agent": "ObligationAgent",
+      "expected_keywords": [
+        "shall",
+        "must",
+        "obligated"
+      ],
+      "ragas_ground_truth": "(c) is rightfully received by the Receiving Party from a third party without breach of any confidentiality obligation; or (d) is independently develop"
+    },
+    {
+      "id": "case_0038_nda_simple_general_governing_law",
+      "category": "general_query",
+      "contract_id": "nda_simple",
+      "contract_file": "tests/fixtures/contracts/nda_simple.md",
+      "contract_name": "Nda Simple",
+      "query": "What is the governing law?",
+      "expected_intent": "GENERAL_QUERY",
+      "expected_keywords": [
+        "governing law",
+        "jurisdiction"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0039_nda_simple_general_termination",
+      "category": "general_query",
+      "contract_id": "nda_simple",
+      "contract_file": "tests/fixtures/contracts/nda_simple.md",
+      "contract_name": "Nda Simple",
+      "query": "How can this contract be terminated?",
+      "expected_intent": "GENERAL_QUERY",
+      "expected_keywords": [
+        "termination",
+        "terminate",
+        "notice"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0040_nda_simple_conv_thanks",
+      "category": "conversational",
+      "contract_id": "nda_simple",
+      "contract_file": "tests/fixtures/contracts/nda_simple.md",
+      "contract_name": "Nda Simple",
+      "query": "Thank you for your help.",
+      "expected_intent": "CONVERSATIONAL",
+      "expected_keywords": [
+        "welcome"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0041_nda_simple_conv_capabilities",
+      "category": "conversational",
+      "contract_id": "nda_simple",
+      "contract_file": "tests/fixtures/contracts/nda_simple.md",
+      "contract_name": "Nda Simple",
+      "query": "What can you help me with?",
+      "expected_intent": "CONVERSATIONAL",
+      "expected_keywords": [
+        "help",
+        "capabilities"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0042_nda_simple_redflags",
+      "category": "redflags",
+      "contract_id": "nda_simple",
+      "contract_file": "tests/fixtures/contracts/nda_simple.md",
+      "contract_name": "Nda Simple",
+      "query": "What red flags should I watch for?",
+      "expected_intent": "RISK_ANALYSIS",
+      "expected_agent": "RiskAgent",
+      "expected_keywords": [
+        "red flag",
+        "risk",
+        "warning"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0043_nda_simple_qa_answer",
+      "category": "qa_answer",
+      "contract_id": "nda_simple",
+      "contract_file": "tests/fixtures/contracts/nda_simple.md",
+      "contract_name": "Nda Simple",
+      "query": "What is the penalty for late delivery?",
+      "expected_intent": "QA_ANSWER",
+      "expected_keywords": [
+        "penalty",
+        "late",
+        "delivery"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0044_logistics_agreement_v3_production_summary",
+      "category": "summary",
+      "contract_id": "logistics_agreement_v3_production",
+      "contract_file": "tests/fixtures/contracts/logistics_agreement_v3_production.md",
+      "contract_name": "Logistics Agreement V3 Production",
+      "query": "Summarize this contract.",
+      "expected_intent": "SUMMARY",
+      "expected_agent": "SummaryAgent",
+      "expected_sections": [
+        "ARTICLE 4",
+        "ARTICLE 12"
+      ],
+      "expected_keywords": [
+        "effective date",
+        "parties"
+      ],
+      "ragas_ground_truth": "High-level summary of logistics_agreement_v3_production."
+    },
+    {
+      "id": "case_0045_logistics_agreement_v3_production_clause_ARTICLE_4",
+      "category": "clause_analysis",
+      "contract_id": "logistics_agreement_v3_production",
+      "contract_file": "tests/fixtures/contracts/logistics_agreement_v3_production.md",
+      "contract_name": "Logistics Agreement V3 Production",
+      "query": "Explain ARTICLE 4",
+      "expected_intent": "CLAUSE_LOOKUP",
+      "expected_agent": "ClauseAgent",
+      "expected_sections": [
+        "ARTICLE 4"
+      ],
+      "expected_keywords": [
+        "PERFORMANCE STANDARDS (KPIs)"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0046_logistics_agreement_v3_production_clause_ARTICLE_12",
+      "category": "clause_analysis",
+      "contract_id": "logistics_agreement_v3_production",
+      "contract_file": "tests/fixtures/contracts/logistics_agreement_v3_production.md",
+      "contract_name": "Logistics Agreement V3 Production",
+      "query": "Explain ARTICLE 12",
+      "expected_intent": "CLAUSE_LOOKUP",
+      "expected_agent": "ClauseAgent",
+      "expected_sections": [
+        "ARTICLE 12"
+      ],
+      "expected_keywords": [
+        "NOTICES"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0047_logistics_agreement_v3_production_obligation_1",
+      "category": "obligation_tracking",
+      "contract_id": "logistics_agreement_v3_production",
+      "contract_file": "tests/fixtures/contracts/logistics_agreement_v3_production.md",
+      "contract_name": "Logistics Agreement V3 Production",
+      "query": "What are the obligations in this contract?",
+      "expected_intent": "OBLIGATION_TRACK",
+      "expected_agent": "ObligationAgent",
+      "expected_keywords": [
+        "shall",
+        "must"
+      ],
+      "ragas_ground_truth": "  - Address: 123 Logistics Way, Mumbai\n  - Operations Contact: ops-support@globallogistics.com\n  - Legal Notice: legal@globallogistics.com\n- **Retail Hub Ltd** (\"Client\")\n  - Contact: procurement@reta"
+    },
+    {
+      "id": "case_0048_logistics_agreement_v3_production_risk_1",
+      "category": "risk_detection",
+      "contract_id": "logistics_agreement_v3_production",
+      "contract_file": "tests/fixtures/contracts/logistics_agreement_v3_production.md",
+      "contract_name": "Logistics Agreement V3 Production",
+      "query": "What are the main risks?",
+      "expected_intent": "RISK_ANALYSIS",
+      "expected_agent": "RiskAgent",
+      "expected_keywords": [
+        "termination",
+        "liability",
+        "damages"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0049_logistics_agreement_v3_production_parties",
+      "category": "general_query",
+      "contract_id": "logistics_agreement_v3_production",
+      "contract_file": "tests/fixtures/contracts/logistics_agreement_v3_production.md",
+      "contract_name": "Logistics Agreement V3 Production",
+      "query": "Who are the parties?",
+      "expected_intent": "GENERAL_QUERY",
+      "expected_keywords": [
+        "party",
+        "parties"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0050_logistics_agreement_v3_production_key_dates",
+      "category": "key_dates",
+      "contract_id": "logistics_agreement_v3_production",
+      "contract_file": "tests/fixtures/contracts/logistics_agreement_v3_production.md",
+      "contract_name": "Logistics Agreement V3 Production",
+      "query": "What are the key dates?",
+      "expected_intent": "GENERAL_QUERY",
+      "expected_keywords": [
+        "date",
+        "effective",
+        "term"
+      ],
+      "expected_values": {
+        "effective_date": "May 1, 2024"
+      },
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0051_logistics_agreement_v3_production_compliance_1",
+      "category": "compliance",
+      "contract_id": "logistics_agreement_v3_production",
+      "contract_file": "tests/fixtures/contracts/logistics_agreement_v3_production.md",
+      "contract_name": "Logistics Agreement V3 Production",
+      "query": "Generate a compliance report.",
+      "expected_intent": "COMPLIANCE",
+      "expected_keywords": [
+        "breach",
+        "penalty",
+        "KPI"
+      ],
+      "expected_tools": [
+        "generate_compliance_report"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0052_logistics_agreement_v3_production_qa_generate",
+      "category": "qa_generation",
+      "contract_id": "logistics_agreement_v3_production",
+      "contract_file": "tests/fixtures/contracts/logistics_agreement_v3_production.md",
+      "contract_name": "Logistics Agreement V3 Production",
+      "query": "What questions should I ask about this contract?",
+      "expected_intent": "QA_GENERATE",
+      "expected_keywords": [
+        "question"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0053_logistics_agreement_v3_production_conversational",
+      "category": "conversational",
+      "contract_id": "logistics_agreement_v3_production",
+      "contract_file": "tests/fixtures/contracts/logistics_agreement_v3_production.md",
+      "contract_name": "Logistics Agreement V3 Production",
+      "query": "Hello, what can you do?",
+      "expected_intent": "CONVERSATIONAL",
+      "expected_keywords": [
+        "help",
+        "can do"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0054_logistics_agreement_v3_production_clause_q_ARTICLE_4",
+      "category": "clause_analysis",
+      "contract_id": "logistics_agreement_v3_production",
+      "contract_file": "tests/fixtures/contracts/logistics_agreement_v3_production.md",
+      "contract_name": "Logistics Agreement V3 Production",
+      "query": "What does ARTICLE 4 say about PERFORMANCE STANDARDS (KPIs)?",
+      "expected_intent": "CLAUSE_LOOKUP",
+      "expected_agent": "ClauseAgent",
+      "expected_sections": [
+        "ARTICLE 4"
+      ],
+      "expected_keywords": [
+        "PERFORMANCE STANDARDS (KPIs)"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0055_logistics_agreement_v3_production_clause_q_ARTICLE_12",
+      "category": "clause_analysis",
+      "contract_id": "logistics_agreement_v3_production",
+      "contract_file": "tests/fixtures/contracts/logistics_agreement_v3_production.md",
+      "contract_name": "Logistics Agreement V3 Production",
+      "query": "What does ARTICLE 12 say about NOTICES?",
+      "expected_intent": "CLAUSE_LOOKUP",
+      "expected_agent": "ClauseAgent",
+      "expected_sections": [
+        "ARTICLE 12"
+      ],
+      "expected_keywords": [
+        "NOTICES"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0056_logistics_agreement_v3_production_obligation_specific_0",
+      "category": "obligation_tracking",
+      "contract_id": "logistics_agreement_v3_production",
+      "contract_file": "tests/fixtures/contracts/logistics_agreement_v3_production.md",
+      "contract_name": "Logistics Agreement V3 Production",
+      "query": "What obligations does the supplier have?",
+      "expected_intent": "OBLIGATION_TRACK",
+      "expected_agent": "ObligationAgent",
+      "expected_keywords": [
+        "shall",
+        "must",
+        "obligated"
+      ],
+      "ragas_ground_truth": "  - Address: 123 Logistics Way, Mumbai\n  - Operations Contact: ops-support@globallogistics.com\n  - Legal Notice: legal@globallogistics.com\n- **Retail "
+    },
+    {
+      "id": "case_0057_logistics_agreement_v3_production_risk_ARTICLE_4",
+      "category": "risk_detection",
+      "contract_id": "logistics_agreement_v3_production",
+      "contract_file": "tests/fixtures/contracts/logistics_agreement_v3_production.md",
+      "contract_name": "Logistics Agreement V3 Production",
+      "query": "What are the risks in ARTICLE 4?",
+      "expected_intent": "RISK_ANALYSIS",
+      "expected_agent": "RiskAgent",
+      "expected_sections": [
+        "ARTICLE 4"
+      ],
+      "expected_keywords": [
+        "risk",
+        "liability",
+        "termination",
+        "damages"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0058_logistics_agreement_v3_production_risk_ARTICLE_12",
+      "category": "risk_detection",
+      "contract_id": "logistics_agreement_v3_production",
+      "contract_file": "tests/fixtures/contracts/logistics_agreement_v3_production.md",
+      "contract_name": "Logistics Agreement V3 Production",
+      "query": "What are the risks in ARTICLE 12?",
+      "expected_intent": "RISK_ANALYSIS",
+      "expected_agent": "RiskAgent",
+      "expected_sections": [
+        "ARTICLE 12"
+      ],
+      "expected_keywords": [
+        "risk",
+        "liability",
+        "termination",
+        "damages"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0059_logistics_agreement_v3_production_general_governing_law",
+      "category": "general_query",
+      "contract_id": "logistics_agreement_v3_production",
+      "contract_file": "tests/fixtures/contracts/logistics_agreement_v3_production.md",
+      "contract_name": "Logistics Agreement V3 Production",
+      "query": "What is the governing law?",
+      "expected_intent": "GENERAL_QUERY",
+      "expected_keywords": [
+        "governing law",
+        "jurisdiction"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0060_logistics_agreement_v3_production_general_termination",
+      "category": "general_query",
+      "contract_id": "logistics_agreement_v3_production",
+      "contract_file": "tests/fixtures/contracts/logistics_agreement_v3_production.md",
+      "contract_name": "Logistics Agreement V3 Production",
+      "query": "How can this contract be terminated?",
+      "expected_intent": "GENERAL_QUERY",
+      "expected_keywords": [
+        "termination",
+        "terminate",
+        "notice"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0061_logistics_agreement_v3_production_conv_thanks",
+      "category": "conversational",
+      "contract_id": "logistics_agreement_v3_production",
+      "contract_file": "tests/fixtures/contracts/logistics_agreement_v3_production.md",
+      "contract_name": "Logistics Agreement V3 Production",
+      "query": "Thank you for your help.",
+      "expected_intent": "CONVERSATIONAL",
+      "expected_keywords": [
+        "welcome"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0062_logistics_agreement_v3_production_conv_capabilities",
+      "category": "conversational",
+      "contract_id": "logistics_agreement_v3_production",
+      "contract_file": "tests/fixtures/contracts/logistics_agreement_v3_production.md",
+      "contract_name": "Logistics Agreement V3 Production",
+      "query": "What can you help me with?",
+      "expected_intent": "CONVERSATIONAL",
+      "expected_keywords": [
+        "help",
+        "capabilities"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0063_logistics_agreement_v3_production_redflags",
+      "category": "redflags",
+      "contract_id": "logistics_agreement_v3_production",
+      "contract_file": "tests/fixtures/contracts/logistics_agreement_v3_production.md",
+      "contract_name": "Logistics Agreement V3 Production",
+      "query": "What red flags should I watch for?",
+      "expected_intent": "RISK_ANALYSIS",
+      "expected_agent": "RiskAgent",
+      "expected_keywords": [
+        "red flag",
+        "risk",
+        "warning"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0064_logistics_agreement_v3_production_qa_answer",
+      "category": "qa_answer",
+      "contract_id": "logistics_agreement_v3_production",
+      "contract_file": "tests/fixtures/contracts/logistics_agreement_v3_production.md",
+      "contract_name": "Logistics Agreement V3 Production",
+      "query": "What is the penalty for late delivery?",
+      "expected_intent": "QA_ANSWER",
+      "expected_keywords": [
+        "penalty",
+        "late",
+        "delivery"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0065_logistics_agreement_v3_production_compound_1",
+      "category": "compound_orchestration",
+      "contract_id": "logistics_agreement_v3_production",
+      "contract_file": "tests/fixtures/contracts/logistics_agreement_v3_production.md",
+      "contract_name": "Logistics Agreement V3 Production",
+      "query": "Explain ARTICLE 4 and ARTICLE 12",
+      "expected_intent": "CLAUSE_LOOKUP",
+      "expected_sections": [
+        "ARTICLE 4",
+        "ARTICLE 12"
+      ],
+      "expected_keywords": [
+        "PERFORMANCE STANDARDS (KPIs)",
+        "NOTICES"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0066_vendor_agreement_summary",
+      "category": "summary",
+      "contract_id": "vendor_agreement",
+      "contract_file": "tests/fixtures/contracts/vendor_agreement.md",
+      "contract_name": "Vendor Agreement",
+      "query": "Summarize this contract.",
+      "expected_intent": "SUMMARY",
+      "expected_agent": "SummaryAgent",
+      "expected_sections": [
+        "Article I",
+        "Article II",
+        "Article III"
+      ],
+      "expected_keywords": [
+        "effective date",
+        "parties"
+      ],
+      "ragas_ground_truth": "High-level summary of vendor_agreement."
+    },
+    {
+      "id": "case_0067_vendor_agreement_clause_Article_I",
+      "category": "clause_analysis",
+      "contract_id": "vendor_agreement",
+      "contract_file": "tests/fixtures/contracts/vendor_agreement.md",
+      "contract_name": "Vendor Agreement",
+      "query": "Explain Article I",
+      "expected_intent": "CLAUSE_LOOKUP",
+      "expected_agent": "ClauseAgent",
+      "expected_sections": [
+        "Article I"
+      ],
+      "expected_keywords": [
+        "Definitions"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0068_vendor_agreement_clause_Article_II",
+      "category": "clause_analysis",
+      "contract_id": "vendor_agreement",
+      "contract_file": "tests/fixtures/contracts/vendor_agreement.md",
+      "contract_name": "Vendor Agreement",
+      "query": "Explain Article II",
+      "expected_intent": "CLAUSE_LOOKUP",
+      "expected_agent": "ClauseAgent",
+      "expected_sections": [
+        "Article II"
+      ],
+      "expected_keywords": [
+        "Service Level Agreements (SLAs) and KPIs"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0069_vendor_agreement_clause_Article_III",
+      "category": "clause_analysis",
+      "contract_id": "vendor_agreement",
+      "contract_file": "tests/fixtures/contracts/vendor_agreement.md",
+      "contract_name": "Vendor Agreement",
+      "query": "Explain Article III",
+      "expected_intent": "CLAUSE_LOOKUP",
+      "expected_agent": "ClauseAgent",
+      "expected_sections": [
+        "Article III"
+      ],
+      "expected_keywords": [
+        "Termination"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0070_vendor_agreement_obligation_1",
+      "category": "obligation_tracking",
+      "contract_id": "vendor_agreement",
+      "contract_file": "tests/fixtures/contracts/vendor_agreement.md",
+      "contract_name": "Vendor Agreement",
+      "query": "What are the obligations in this contract?",
+      "expected_intent": "OBLIGATION_TRACK",
+      "expected_agent": "ObligationAgent",
+      "expected_keywords": [
+        "shall",
+        "must"
+      ],
+      "ragas_ground_truth": "# Vendor Software License and Service Agreement 2026\n\n## Article I: Definitions\n1.1 \"Vendor\" means CloudTech Solutions.\n1.2 \"Client\" means Global Enterprises.\n\n## Article II: Service Level Agreements "
+    },
+    {
+      "id": "case_0071_vendor_agreement_risk_1",
+      "category": "risk_detection",
+      "contract_id": "vendor_agreement",
+      "contract_file": "tests/fixtures/contracts/vendor_agreement.md",
+      "contract_name": "Vendor Agreement",
+      "query": "What are the main risks?",
+      "expected_intent": "RISK_ANALYSIS",
+      "expected_agent": "RiskAgent",
+      "expected_keywords": [
+        "termination",
+        "liability",
+        "damages"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0072_vendor_agreement_parties",
+      "category": "general_query",
+      "contract_id": "vendor_agreement",
+      "contract_file": "tests/fixtures/contracts/vendor_agreement.md",
+      "contract_name": "Vendor Agreement",
+      "query": "Who are the parties?",
+      "expected_intent": "GENERAL_QUERY",
+      "expected_keywords": [
+        "party",
+        "parties"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0073_vendor_agreement_compliance_1",
+      "category": "compliance",
+      "contract_id": "vendor_agreement",
+      "contract_file": "tests/fixtures/contracts/vendor_agreement.md",
+      "contract_name": "Vendor Agreement",
+      "query": "Generate a compliance report.",
+      "expected_intent": "COMPLIANCE",
+      "expected_keywords": [
+        "breach",
+        "penalty",
+        "KPI"
+      ],
+      "expected_tools": [
+        "generate_compliance_report"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0074_vendor_agreement_qa_generate",
+      "category": "qa_generation",
+      "contract_id": "vendor_agreement",
+      "contract_file": "tests/fixtures/contracts/vendor_agreement.md",
+      "contract_name": "Vendor Agreement",
+      "query": "What questions should I ask about this contract?",
+      "expected_intent": "QA_GENERATE",
+      "expected_keywords": [
+        "question"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0075_vendor_agreement_conversational",
+      "category": "conversational",
+      "contract_id": "vendor_agreement",
+      "contract_file": "tests/fixtures/contracts/vendor_agreement.md",
+      "contract_name": "Vendor Agreement",
+      "query": "Hello, what can you do?",
+      "expected_intent": "CONVERSATIONAL",
+      "expected_keywords": [
+        "help",
+        "can do"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0076_vendor_agreement_clause_q_Article_I",
+      "category": "clause_analysis",
+      "contract_id": "vendor_agreement",
+      "contract_file": "tests/fixtures/contracts/vendor_agreement.md",
+      "contract_name": "Vendor Agreement",
+      "query": "What does Article I say about Definitions?",
+      "expected_intent": "CLAUSE_LOOKUP",
+      "expected_agent": "ClauseAgent",
+      "expected_sections": [
+        "Article I"
+      ],
+      "expected_keywords": [
+        "Definitions"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0077_vendor_agreement_clause_q_Article_II",
+      "category": "clause_analysis",
+      "contract_id": "vendor_agreement",
+      "contract_file": "tests/fixtures/contracts/vendor_agreement.md",
+      "contract_name": "Vendor Agreement",
+      "query": "What does Article II say about Service Level Agreements (SLAs) and KPIs?",
+      "expected_intent": "CLAUSE_LOOKUP",
+      "expected_agent": "ClauseAgent",
+      "expected_sections": [
+        "Article II"
+      ],
+      "expected_keywords": [
+        "Service Level Agreements (SLAs) and KPIs"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0078_vendor_agreement_clause_q_Article_III",
+      "category": "clause_analysis",
+      "contract_id": "vendor_agreement",
+      "contract_file": "tests/fixtures/contracts/vendor_agreement.md",
+      "contract_name": "Vendor Agreement",
+      "query": "What does Article III say about Termination?",
+      "expected_intent": "CLAUSE_LOOKUP",
+      "expected_agent": "ClauseAgent",
+      "expected_sections": [
+        "Article III"
+      ],
+      "expected_keywords": [
+        "Termination"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0079_vendor_agreement_obligation_specific_0",
+      "category": "obligation_tracking",
+      "contract_id": "vendor_agreement",
+      "contract_file": "tests/fixtures/contracts/vendor_agreement.md",
+      "contract_name": "Vendor Agreement",
+      "query": "What obligations does the supplier have?",
+      "expected_intent": "OBLIGATION_TRACK",
+      "expected_agent": "ObligationAgent",
+      "expected_keywords": [
+        "shall",
+        "must",
+        "obligated"
+      ],
+      "ragas_ground_truth": "# Vendor Software License and Service Agreement 2026\n\n## Article I: Definitions\n1.1 \"Vendor\" means CloudTech Solutions.\n1.2 \"Client\" means Global Ente"
+    },
+    {
+      "id": "case_0080_vendor_agreement_risk_Article_I",
+      "category": "risk_detection",
+      "contract_id": "vendor_agreement",
+      "contract_file": "tests/fixtures/contracts/vendor_agreement.md",
+      "contract_name": "Vendor Agreement",
+      "query": "What are the risks in Article I?",
+      "expected_intent": "RISK_ANALYSIS",
+      "expected_agent": "RiskAgent",
+      "expected_sections": [
+        "Article I"
+      ],
+      "expected_keywords": [
+        "risk",
+        "liability",
+        "termination",
+        "damages"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0081_vendor_agreement_risk_Article_II",
+      "category": "risk_detection",
+      "contract_id": "vendor_agreement",
+      "contract_file": "tests/fixtures/contracts/vendor_agreement.md",
+      "contract_name": "Vendor Agreement",
+      "query": "What are the risks in Article II?",
+      "expected_intent": "RISK_ANALYSIS",
+      "expected_agent": "RiskAgent",
+      "expected_sections": [
+        "Article II"
+      ],
+      "expected_keywords": [
+        "risk",
+        "liability",
+        "termination",
+        "damages"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0082_vendor_agreement_risk_Article_III",
+      "category": "risk_detection",
+      "contract_id": "vendor_agreement",
+      "contract_file": "tests/fixtures/contracts/vendor_agreement.md",
+      "contract_name": "Vendor Agreement",
+      "query": "What are the risks in Article III?",
+      "expected_intent": "RISK_ANALYSIS",
+      "expected_agent": "RiskAgent",
+      "expected_sections": [
+        "Article III"
+      ],
+      "expected_keywords": [
+        "risk",
+        "liability",
+        "termination",
+        "damages"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0083_vendor_agreement_general_governing_law",
+      "category": "general_query",
+      "contract_id": "vendor_agreement",
+      "contract_file": "tests/fixtures/contracts/vendor_agreement.md",
+      "contract_name": "Vendor Agreement",
+      "query": "What is the governing law?",
+      "expected_intent": "GENERAL_QUERY",
+      "expected_keywords": [
+        "governing law",
+        "jurisdiction"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0084_vendor_agreement_general_termination",
+      "category": "general_query",
+      "contract_id": "vendor_agreement",
+      "contract_file": "tests/fixtures/contracts/vendor_agreement.md",
+      "contract_name": "Vendor Agreement",
+      "query": "How can this contract be terminated?",
+      "expected_intent": "GENERAL_QUERY",
+      "expected_keywords": [
+        "termination",
+        "terminate",
+        "notice"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0085_vendor_agreement_conv_thanks",
+      "category": "conversational",
+      "contract_id": "vendor_agreement",
+      "contract_file": "tests/fixtures/contracts/vendor_agreement.md",
+      "contract_name": "Vendor Agreement",
+      "query": "Thank you for your help.",
+      "expected_intent": "CONVERSATIONAL",
+      "expected_keywords": [
+        "welcome"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0086_vendor_agreement_conv_capabilities",
+      "category": "conversational",
+      "contract_id": "vendor_agreement",
+      "contract_file": "tests/fixtures/contracts/vendor_agreement.md",
+      "contract_name": "Vendor Agreement",
+      "query": "What can you help me with?",
+      "expected_intent": "CONVERSATIONAL",
+      "expected_keywords": [
+        "help",
+        "capabilities"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0087_vendor_agreement_redflags",
+      "category": "redflags",
+      "contract_id": "vendor_agreement",
+      "contract_file": "tests/fixtures/contracts/vendor_agreement.md",
+      "contract_name": "Vendor Agreement",
+      "query": "What red flags should I watch for?",
+      "expected_intent": "RISK_ANALYSIS",
+      "expected_agent": "RiskAgent",
+      "expected_keywords": [
+        "red flag",
+        "risk",
+        "warning"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0088_vendor_agreement_qa_answer",
+      "category": "qa_answer",
+      "contract_id": "vendor_agreement",
+      "contract_file": "tests/fixtures/contracts/vendor_agreement.md",
+      "contract_name": "Vendor Agreement",
+      "query": "What is the penalty for late delivery?",
+      "expected_intent": "QA_ANSWER",
+      "expected_keywords": [
+        "penalty",
+        "late",
+        "delivery"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0089_vendor_agreement_compound_1",
+      "category": "compound_orchestration",
+      "contract_id": "vendor_agreement",
+      "contract_file": "tests/fixtures/contracts/vendor_agreement.md",
+      "contract_name": "Vendor Agreement",
+      "query": "Explain Article I and Article II",
+      "expected_intent": "CLAUSE_LOOKUP",
+      "expected_sections": [
+        "Article I",
+        "Article II"
+      ],
+      "expected_keywords": [
+        "Definitions",
+        "Service Level Agreements (SLAs) and KPIs"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0090_airport_food_summary",
+      "category": "summary",
+      "contract_id": "airport_food",
+      "contract_file": "tests/fixtures/contracts/airport_food.md",
+      "contract_name": "Airport Food",
+      "query": "Summarize this contract.",
+      "expected_intent": "SUMMARY",
+      "expected_agent": "SummaryAgent",
+      "expected_sections": [
+        "ARTICLE I",
+        "Section 1.01",
+        "ARTICLE II"
+      ],
+      "expected_keywords": [
+        "effective date",
+        "parties"
+      ],
+      "ragas_ground_truth": "High-level summary of airport_food."
+    },
+    {
+      "id": "case_0091_airport_food_clause_ARTICLE_I",
+      "category": "clause_analysis",
+      "contract_id": "airport_food",
+      "contract_file": "tests/fixtures/contracts/airport_food.md",
+      "contract_name": "Airport Food",
+      "query": "Explain ARTICLE I",
+      "expected_intent": "CLAUSE_LOOKUP",
+      "expected_agent": "ClauseAgent",
+      "expected_sections": [
+        "ARTICLE I"
+      ],
+      "expected_keywords": [
+        "DEFINITIONS"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0092_airport_food_clause_Section_1.01",
+      "category": "clause_analysis",
+      "contract_id": "airport_food",
+      "contract_file": "tests/fixtures/contracts/airport_food.md",
+      "contract_name": "Airport Food",
+      "query": "Explain Section 1.01",
+      "expected_intent": "CLAUSE_LOOKUP",
+      "expected_agent": "ClauseAgent",
+      "expected_sections": [
+        "Section 1.01"
+      ],
+      "expected_keywords": [
+        "Defined Terms"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0093_airport_food_clause_ARTICLE_II",
+      "category": "clause_analysis",
+      "contract_id": "airport_food",
+      "contract_file": "tests/fixtures/contracts/airport_food.md",
+      "contract_name": "Airport Food",
+      "query": "Explain ARTICLE II",
+      "expected_intent": "CLAUSE_LOOKUP",
+      "expected_agent": "ClauseAgent",
+      "expected_sections": [
+        "ARTICLE II"
+      ],
+      "expected_keywords": [
+        "MEAL SERVICE SPECIFICATIONS"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0094_airport_food_clause_Section_2.01",
+      "category": "clause_analysis",
+      "contract_id": "airport_food",
+      "contract_file": "tests/fixtures/contracts/airport_food.md",
+      "contract_name": "Airport Food",
+      "query": "Explain Section 2.01",
+      "expected_intent": "CLAUSE_LOOKUP",
+      "expected_agent": "ClauseAgent",
+      "expected_sections": [
+        "Section 2.01"
+      ],
+      "expected_keywords": [
+        "Business Class Meal Specifications"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0095_airport_food_clause_Section_2.02",
+      "category": "clause_analysis",
+      "contract_id": "airport_food",
+      "contract_file": "tests/fixtures/contracts/airport_food.md",
+      "contract_name": "Airport Food",
+      "query": "Explain Section 2.02",
+      "expected_intent": "CLAUSE_LOOKUP",
+      "expected_agent": "ClauseAgent",
+      "expected_sections": [
+        "Section 2.02"
+      ],
+      "expected_keywords": [
+        "Economy Class Meal Specifications"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0096_airport_food_obligation_1",
+      "category": "obligation_tracking",
+      "contract_id": "airport_food",
+      "contract_file": "tests/fixtures/contracts/airport_food.md",
+      "contract_name": "Airport Food",
+      "query": "What are the obligations in this contract?",
+      "expected_intent": "OBLIGATION_TRACK",
+      "expected_agent": "ObligationAgent",
+      "expected_keywords": [
+        "shall",
+        "must"
+      ],
+      "ragas_ground_truth": "ses;\n\n**WHEREAS,** the Concessionaire represents it possesses the expertise, facilities, and capacity to provide in-flight meal catering services meeting aviation industry standards;\n\n**NOW, THEREFORE"
+    },
+    {
+      "id": "case_0097_airport_food_risk_1",
+      "category": "risk_detection",
+      "contract_id": "airport_food",
+      "contract_file": "tests/fixtures/contracts/airport_food.md",
+      "contract_name": "Airport Food",
+      "query": "What are the main risks?",
+      "expected_intent": "RISK_ANALYSIS",
+      "expected_agent": "RiskAgent",
+      "expected_keywords": [
+        "termination",
+        "liability",
+        "damages"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0098_airport_food_parties",
+      "category": "general_query",
+      "contract_id": "airport_food",
+      "contract_file": "tests/fixtures/contracts/airport_food.md",
+      "contract_name": "Airport Food",
+      "query": "Who are the parties?",
+      "expected_intent": "GENERAL_QUERY",
+      "expected_keywords": [
+        "party",
+        "parties"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0099_airport_food_key_dates",
+      "category": "key_dates",
+      "contract_id": "airport_food",
+      "contract_file": "tests/fixtures/contracts/airport_food.md",
+      "contract_name": "Airport Food",
+      "query": "What are the key dates?",
+      "expected_intent": "GENERAL_QUERY",
+      "expected_keywords": [
+        "date",
+        "effective",
+        "term"
+      ],
+      "expected_values": {
+        "effective_date": "January 1, 2027"
+      },
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0100_airport_food_compliance_1",
+      "category": "compliance",
+      "contract_id": "airport_food",
+      "contract_file": "tests/fixtures/contracts/airport_food.md",
+      "contract_name": "Airport Food",
+      "query": "Generate a compliance report.",
+      "expected_intent": "COMPLIANCE",
+      "expected_keywords": [
+        "breach",
+        "penalty",
+        "KPI"
+      ],
+      "expected_tools": [
+        "generate_compliance_report"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0101_airport_food_qa_generate",
+      "category": "qa_generation",
+      "contract_id": "airport_food",
+      "contract_file": "tests/fixtures/contracts/airport_food.md",
+      "contract_name": "Airport Food",
+      "query": "What questions should I ask about this contract?",
+      "expected_intent": "QA_GENERATE",
+      "expected_keywords": [
+        "question"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0102_airport_food_conversational",
+      "category": "conversational",
+      "contract_id": "airport_food",
+      "contract_file": "tests/fixtures/contracts/airport_food.md",
+      "contract_name": "Airport Food",
+      "query": "Hello, what can you do?",
+      "expected_intent": "CONVERSATIONAL",
+      "expected_keywords": [
+        "help",
+        "can do"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0103_airport_food_clause_q_ARTICLE_I",
+      "category": "clause_analysis",
+      "contract_id": "airport_food",
+      "contract_file": "tests/fixtures/contracts/airport_food.md",
+      "contract_name": "Airport Food",
+      "query": "What does ARTICLE I say about DEFINITIONS?",
+      "expected_intent": "CLAUSE_LOOKUP",
+      "expected_agent": "ClauseAgent",
+      "expected_sections": [
+        "ARTICLE I"
+      ],
+      "expected_keywords": [
+        "DEFINITIONS"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0104_airport_food_clause_q_Section_1.01",
+      "category": "clause_analysis",
+      "contract_id": "airport_food",
+      "contract_file": "tests/fixtures/contracts/airport_food.md",
+      "contract_name": "Airport Food",
+      "query": "What does Section 1.01 say about Defined Terms?",
+      "expected_intent": "CLAUSE_LOOKUP",
+      "expected_agent": "ClauseAgent",
+      "expected_sections": [
+        "Section 1.01"
+      ],
+      "expected_keywords": [
+        "Defined Terms"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0105_airport_food_clause_q_ARTICLE_II",
+      "category": "clause_analysis",
+      "contract_id": "airport_food",
+      "contract_file": "tests/fixtures/contracts/airport_food.md",
+      "contract_name": "Airport Food",
+      "query": "What does ARTICLE II say about MEAL SERVICE SPECIFICATIONS?",
+      "expected_intent": "CLAUSE_LOOKUP",
+      "expected_agent": "ClauseAgent",
+      "expected_sections": [
+        "ARTICLE II"
+      ],
+      "expected_keywords": [
+        "MEAL SERVICE SPECIFICATIONS"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0106_airport_food_clause_q_Section_2.01",
+      "category": "clause_analysis",
+      "contract_id": "airport_food",
+      "contract_file": "tests/fixtures/contracts/airport_food.md",
+      "contract_name": "Airport Food",
+      "query": "What does Section 2.01 say about Business Class Meal Specifications?",
+      "expected_intent": "CLAUSE_LOOKUP",
+      "expected_agent": "ClauseAgent",
+      "expected_sections": [
+        "Section 2.01"
+      ],
+      "expected_keywords": [
+        "Business Class Meal Specifications"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0107_airport_food_clause_q_Section_2.02",
+      "category": "clause_analysis",
+      "contract_id": "airport_food",
+      "contract_file": "tests/fixtures/contracts/airport_food.md",
+      "contract_name": "Airport Food",
+      "query": "What does Section 2.02 say about Economy Class Meal Specifications?",
+      "expected_intent": "CLAUSE_LOOKUP",
+      "expected_agent": "ClauseAgent",
+      "expected_sections": [
+        "Section 2.02"
+      ],
+      "expected_keywords": [
+        "Economy Class Meal Specifications"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0108_airport_food_obligation_specific_0",
+      "category": "obligation_tracking",
+      "contract_id": "airport_food",
+      "contract_file": "tests/fixtures/contracts/airport_food.md",
+      "contract_name": "Airport Food",
+      "query": "What obligations does the supplier have?",
+      "expected_intent": "OBLIGATION_TRACK",
+      "expected_agent": "ObligationAgent",
+      "expected_keywords": [
+        "shall",
+        "must",
+        "obligated"
+      ],
+      "ragas_ground_truth": "ses;\n\n**WHEREAS,** the Concessionaire represents it possesses the expertise, facilities, and capacity to provide in-flight meal catering services meet"
+    },
+    {
+      "id": "case_0109_airport_food_risk_ARTICLE_I",
+      "category": "risk_detection",
+      "contract_id": "airport_food",
+      "contract_file": "tests/fixtures/contracts/airport_food.md",
+      "contract_name": "Airport Food",
+      "query": "What are the risks in ARTICLE I?",
+      "expected_intent": "RISK_ANALYSIS",
+      "expected_agent": "RiskAgent",
+      "expected_sections": [
+        "ARTICLE I"
+      ],
+      "expected_keywords": [
+        "risk",
+        "liability",
+        "termination",
+        "damages"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0110_airport_food_risk_Section_1.01",
+      "category": "risk_detection",
+      "contract_id": "airport_food",
+      "contract_file": "tests/fixtures/contracts/airport_food.md",
+      "contract_name": "Airport Food",
+      "query": "What are the risks in Section 1.01?",
+      "expected_intent": "RISK_ANALYSIS",
+      "expected_agent": "RiskAgent",
+      "expected_sections": [
+        "Section 1.01"
+      ],
+      "expected_keywords": [
+        "risk",
+        "liability",
+        "termination",
+        "damages"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0111_airport_food_risk_ARTICLE_II",
+      "category": "risk_detection",
+      "contract_id": "airport_food",
+      "contract_file": "tests/fixtures/contracts/airport_food.md",
+      "contract_name": "Airport Food",
+      "query": "What are the risks in ARTICLE II?",
+      "expected_intent": "RISK_ANALYSIS",
+      "expected_agent": "RiskAgent",
+      "expected_sections": [
+        "ARTICLE II"
+      ],
+      "expected_keywords": [
+        "risk",
+        "liability",
+        "termination",
+        "damages"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0112_airport_food_general_governing_law",
+      "category": "general_query",
+      "contract_id": "airport_food",
+      "contract_file": "tests/fixtures/contracts/airport_food.md",
+      "contract_name": "Airport Food",
+      "query": "What is the governing law?",
+      "expected_intent": "GENERAL_QUERY",
+      "expected_keywords": [
+        "governing law",
+        "jurisdiction"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0113_airport_food_general_termination",
+      "category": "general_query",
+      "contract_id": "airport_food",
+      "contract_file": "tests/fixtures/contracts/airport_food.md",
+      "contract_name": "Airport Food",
+      "query": "How can this contract be terminated?",
+      "expected_intent": "GENERAL_QUERY",
+      "expected_keywords": [
+        "termination",
+        "terminate",
+        "notice"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0114_airport_food_conv_thanks",
+      "category": "conversational",
+      "contract_id": "airport_food",
+      "contract_file": "tests/fixtures/contracts/airport_food.md",
+      "contract_name": "Airport Food",
+      "query": "Thank you for your help.",
+      "expected_intent": "CONVERSATIONAL",
+      "expected_keywords": [
+        "welcome"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0115_airport_food_conv_capabilities",
+      "category": "conversational",
+      "contract_id": "airport_food",
+      "contract_file": "tests/fixtures/contracts/airport_food.md",
+      "contract_name": "Airport Food",
+      "query": "What can you help me with?",
+      "expected_intent": "CONVERSATIONAL",
+      "expected_keywords": [
+        "help",
+        "capabilities"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0116_airport_food_redflags",
+      "category": "redflags",
+      "contract_id": "airport_food",
+      "contract_file": "tests/fixtures/contracts/airport_food.md",
+      "contract_name": "Airport Food",
+      "query": "What red flags should I watch for?",
+      "expected_intent": "RISK_ANALYSIS",
+      "expected_agent": "RiskAgent",
+      "expected_keywords": [
+        "red flag",
+        "risk",
+        "warning"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0117_airport_food_qa_answer",
+      "category": "qa_answer",
+      "contract_id": "airport_food",
+      "contract_file": "tests/fixtures/contracts/airport_food.md",
+      "contract_name": "Airport Food",
+      "query": "What is the penalty for late delivery?",
+      "expected_intent": "QA_ANSWER",
+      "expected_keywords": [
+        "penalty",
+        "late",
+        "delivery"
+      ],
+      "ragas_ground_truth": ""
+    },
+    {
+      "id": "case_0118_airport_food_compound_1",
+      "category": "compound_orchestration",
+      "contract_id": "airport_food",
+      "contract_file": "tests/fixtures/contracts/airport_food.md",
+      "contract_name": "Airport Food",
+      "query": "Explain ARTICLE I and Section 1.01",
+      "expected_intent": "CLAUSE_LOOKUP",
+      "expected_sections": [
+        "ARTICLE I",
+        "Section 1.01"
+      ],
+      "expected_keywords": [
+        "DEFINITIONS",
+        "Defined Terms"
+      ],
+      "ragas_ground_truth": ""
+    }
+  ]
+}

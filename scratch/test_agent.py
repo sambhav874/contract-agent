@@ -12,7 +12,7 @@ async def main():
     await MongoDB.connect()
     agent = ChatAgent(contract_id="prod-logistics-v3")
     print("Agent created.")
-    async for chunk in agent.answer_question_stream("track kpi 4.1"):
+    async for chunk in agent.answer_question_stream("What are the payment terms for services rendered under this agreement?"):
         print("CHUNK:", chunk)
 
 if __name__ == "__main__":

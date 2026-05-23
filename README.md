@@ -92,8 +92,21 @@ contract-agent/
 │   ├── agents/            # Analysis agents
 │   ├── synthesis/         # Output synthesis
 │   ├── llm/               # Gemini client
+│   ├── evaluation/        # Evaluation harnesses
+│   ├── memory/            # Agent memory stores
+│   ├── observability/     # Logging, tracing, metrics
+│   ├── tools/             # Agent tool registry and helpers
 │   └── tasks/             # Celery tasks
+├── data/
+│   ├── kpis/              # Local KPI CSV inputs
+│   └── samples/           # Small sample payloads
+├── docs/
+│   ├── prototypes/        # Static HTML prototypes
+│   └── reports/           # Architecture and evaluation writeups
+├── frontend/              # Next.js monitoring dashboard
 ├── prompts/               # Agent prompts
+├── reports/               # Generated local reports (ignored)
+├── scripts/               # Operational helper scripts
 └── tests/                 # Fixtures and tests
 ```
 

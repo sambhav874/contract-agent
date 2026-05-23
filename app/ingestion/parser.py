@@ -1,5 +1,7 @@
 """Markdown structural parser and metadata extractor."""
 
+import asyncio
+import inspect
 import re
 from typing import Any
 
@@ -285,19 +287,118 @@ def extract_metadata(text: str, contract_id: str) -> dict[str, Any]:
     return metadata
 
 
-async def parse_contract(file_path: str, name: str | None = None) -> tuple[ContractMetadata, StructuralMap]:
+async def extract_text_from_file(file_path: str) -> str:
+    """Extract text from file. Uses LiteParse for PDFs, plain text otherwise."""
+    if file_path.lower().endswith('.pdf'):
+        try:
+            from liteparse import LiteParse
+
+            last_error: Exception | None = None
+
+            for ocr_enabled in (False, True):
+                parser = build_liteparse_parser(LiteParse, ocr_enabled=ocr_enabled)
+                try:
+                    result = await run_liteparse_parse(parser, file_path, ocr_enabled=ocr_enabled)
+                    text = liteparse_result_to_text(result)
+                    if text.strip() or ocr_enabled:
+                        return text
+                except Exception as exc:
+                    last_error = exc
+                    if not ocr_enabled:
+                        continue
+                    raise liteparse_runtime_error(exc) from exc
+
+            if last_error:
+                raise liteparse_runtime_error(last_error) from last_error
+            return ""
+        except ImportError as exc:
+            raise ImportError("The liteparse Python package is required to process PDF files.") from exc
+    else:
+        with open(file_path, "r", encoding="utf-8") as f:
+            return f.read()
+
+
+def build_liteparse_parser(liteparse_cls: Any, *, ocr_enabled: bool) -> Any:
+    """Create a LiteParse parser through the Python package API."""
+    init_params = inspect.signature(liteparse_cls).parameters
+    kwargs: dict[str, Any] = {}
+    parser_options = {
+        "ocr_enabled": ocr_enabled,
+        "ocr_language": "eng",
+        "max_pages": 10000,
+        "dpi": 150,
+        "preserve_very_small_text": True,
+        "quiet": True,
+    }
+
+    for key, value in parser_options.items():
+        if key in init_params:
+            kwargs[key] = value
+
+    return liteparse_cls(**kwargs)
+
+
+async def run_liteparse_parse(parser: Any, file_path: str, *, ocr_enabled: bool) -> Any:
+    """Run LiteParse via its Python API, supporting both stable and native wheels."""
+    if hasattr(parser, "parse_async"):
+        parse_method = parser.parse_async
+        parse_params = inspect.signature(parse_method).parameters
+        kwargs: dict[str, Any] = {}
+        parse_options = {
+            "ocr_enabled": ocr_enabled,
+            "ocr_language": "eng",
+            "max_pages": 10000,
+            "dpi": 150,
+            "preserve_very_small_text": True,
+            "precise_bounding_box": True,
+            "timeout": 120,
+        }
+        for key, value in parse_options.items():
+            if key in parse_params:
+                kwargs[key] = value
+        return await parse_method(file_path, **kwargs)
+
+    return await asyncio.wait_for(asyncio.to_thread(parser.parse, file_path), timeout=120)
+
+
+def liteparse_result_to_text(result: Any) -> str:
+    """Convert LiteParse page output to text with stable page markers."""
+    pages = getattr(result, "pages", []) or []
+    if not pages:
+        return getattr(result, "text", "") or ""
+
+    content_with_markers = []
+    for index, page in enumerate(pages, 1):
+        page_num = getattr(page, "page_num", None) or getattr(page, "pageNum", index)
+        page_text = getattr(page, "text", "") or getattr(page, "markdown", "") or ""
+        content_with_markers.append(f"--- Page {page_num} ---\n\n{page_text}")
+
+    return "\n\n".join(content_with_markers)
+
+
+def liteparse_runtime_error(exc: Exception) -> RuntimeError:
+    """Include LiteParse CLI stderr in API-facing parse errors."""
+    message = str(exc)
+    stderr = getattr(exc, "stderr", None)
+    if stderr:
+        stderr_text = str(stderr).strip()
+        if stderr_text:
+            message = f"{message}: {stderr_text[:1000]}"
+    return RuntimeError(f"LiteParse failed to parse the PDF: {message}")
+
+
+async def parse_contract(file_path: str, name: str | None = None) -> tuple[ContractMetadata, StructuralMap, str]:
     """
-    Parse a contract Markdown file.
+    Parse a contract file (Markdown or PDF).
 
     Args:
-        file_path: Path to the .md file
+        file_path: Path to the file
         name: Optional name for the contract
 
     Returns:
-        Tuple of (ContractMetadata, StructuralMap)
+        Tuple of (ContractMetadata, StructuralMap, extracted_text)
     """
-    with open(file_path, "r", encoding="utf-8") as f:
-        text = f.read()
+    text = await extract_text_from_file(file_path)
 
     contract_id = name.lower().replace(" ", "_").replace("-", "_") if name else None
     structural_map, metadata_dict = parse_markdown(text, contract_id or "")
@@ -311,4 +412,4 @@ async def parse_contract(file_path: str, name: str | None = None) -> tuple[Contr
         structural_map=structural_map.model_dump(),
     )
 
-    return contract_metadata, structural_map
+    return contract_metadata, structural_map, text

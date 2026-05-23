@@ -4,20 +4,26 @@ __pycache__/
 *$py.class
 venv/
 .env
+.coverage
+htmlcov/
 
 # Reports and temporary files
-COMPREHENSIVE_REPORT.md
-COMPREHENSIVE_REPORT1.md
-EVALUATION_REPORT.md
-evaluation_results.json
-evaluation_results_v2.json
-failed_gemini_response.txt
-failed_gemini_response.json
-results_*.json
+/reports/
+/COMPREHENSIVE_REPORT*.md
+/EVALUATION_*.md
+/evaluation_results*.json
+/evaluation_failures*.json
+/failed_gemini_response.txt
+/failed_gemini_response.json
+/results_*.json
+/breach_report*.txt
+/test_results*.txt
 *.csv
+*.log
 logs/
 data/actuals/
 data/processed/
+data/tessdata/
 
 # IDEs
 .vscode/

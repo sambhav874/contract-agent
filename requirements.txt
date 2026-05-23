@@ -7,6 +7,11 @@ pydantic-settings>=2.0.0
 httpx>=0.25.0
 google-genai>=0.1.0
 
+# API server
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9
+
 # MongoDB
 motor>=3.3.0
 pymongo>=4.6.0
@@ -14,6 +19,7 @@ pymongo>=4.6.0
 # Task queue
 celery>=5.3.0
 kombu>=5.3.0
+asgiref>=3.8.0
 
 # Terminal UI
 rich>=13.0.0
@@ -25,8 +31,13 @@ voyageai>=0.2.0
 python-dotenv>=1.0.0
 uvloop>=0.19.0; platform_system != "Windows"
 tiktoken>=0.5.0
+liteparse>=2.0.0b0
 
 # Testing
 pytest>=7.4.0
 pytest-asyncio>=0.21.0
 pytest-cov>=4.1.0
+structlog>=23.0.0
+
+# Evaluation
+deepeval>=4.0.0

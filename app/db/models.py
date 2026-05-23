@@ -1,6 +1,6 @@
 """Pydantic models for MongoDB documents — corrected and extended."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
@@ -19,7 +19,7 @@ class ContractMetadata(BaseModel):
     jurisdiction: str | None = None
     currency: str | None = None
     structural_map: dict[str, Any] | None = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class StructuralSection(BaseModel):
@@ -50,7 +50,7 @@ class ChunkDocument(BaseModel):
     parent_chunk_id: str | None = None
     child_chunk_ids: list[str] = Field(default_factory=list)
     embedding: list[float] | None = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class AnalysisJob(BaseModel):
@@ -62,7 +62,7 @@ class AnalysisJob(BaseModel):
     status: str = "pending"   # pending / running / completed / failed
     result: dict[str, Any] | None = None
     error_message: str | None = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: datetime | None = None
     corpus_query: bool = False
 
@@ -128,7 +128,7 @@ class KPIItem(BaseModel):
     name: str = Field(description="Descriptive name of the KPI (e.g., 'Late Delivery Penalty')")
     value: str = Field(description="The numeric value or threshold (e.g., '500', '99.5')")
     unit: str = Field(description="The unit of measurement (e.g., 'USD', '%', 'hours')")
-    
+
     # ── Quantitative Fields (for SQL matching) ───────────────────────
     value_min: float | None = Field(None, description="Minimum threshold (for ranges or single values)")
     value_max: float | None = Field(None, description="Maximum threshold (only for 'between' ranges)")
@@ -262,7 +262,7 @@ class RawActual(BaseModel):
     contract_id: str
     data: dict[str, Any]
     source: str
-    ingested_at: datetime = Field(default_factory=datetime.utcnow)
+    ingested_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     status: str = "pending"  # pending / processed / error
 
 
@@ -275,7 +275,7 @@ class MappingRule(BaseModel):
     # Maps OperationalActual field names to JSON paths in the raw data
     # e.g., {"value": "sensors.temp_reading", "unit": "metadata.unit"}
     field_mappings: dict[str, str] = Field(default_factory=dict)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class BreachResult(BaseModel):
@@ -295,3 +295,41 @@ class BreachResult(BaseModel):
     notes: str | None = None
     timestamp: str = Field(default_factory=lambda: datetime.now().isoformat())
 
+
+# ── Question / Answer (QA) Library ────────────────────────────────────
+
+class QAItem(BaseModel):
+    question: str
+    answer: str = ""
+    sources: list[str] = Field(default_factory=list)
+    confidence: float = Field(ge=0.0, le=1.0, default=0.0)
+    status: str = "pending"  # pending, approved, saved, rejected
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class QACategory(BaseModel):
+    id: str | None = None
+    category: str
+    description: str = ""
+    questions: list[QAItem] = Field(default_factory=list)
+    status: str = "draft"  # draft, approved
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class SavedQA(BaseModel):
+    """A single saved Q&A pair."""
+    qa_id: str = Field(default_factory=lambda: str(uuid4()))
+    contract_id: str
+    category: str
+    question: str
+    answer: str
+    sources: list[str] = Field(default_factory=list)
+    exact_quotes: list[str] = Field(default_factory=list)
+    justification: str | None = None
+    confidence: float = 0.0
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+# ── Saved Q&A Library (for a contract) ─────────────────────────────────

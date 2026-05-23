@@ -109,20 +109,32 @@ class EmbeddingService:
     async def embed_chunks(self, chunks: list[ChunkDocument]) -> list[ChunkDocument]:
         """
         Embed a list of chunks and update their embedding field.
+        Skips empty or whitespace-only text to prevent Voyage AI errors.
 
         Args:
             chunks: List of ChunkDocument objects
 
         Returns:
-            Same list with embedding field populated
+            Same list with embedding field populated where possible
         """
-        texts = [chunk.text for chunk in chunks]
-        embeddings = await self.embed_documents(texts, input_type="document")
+        if not chunks:
+            return []
 
-        for chunk, embedding in zip(chunks, embeddings):
-            chunk.embedding = embedding
+        # Identify chunks with valid text to embed
+        valid_indices = [i for i, chunk in enumerate(chunks) if chunk.text and chunk.text.strip()]
+
+        if not valid_indices:
+            return chunks
+
+        texts_to_embed = [chunks[i].text for i in valid_indices]
+        embeddings = await self.embed_documents(texts_to_embed, input_type="document")
+
+        # Map embeddings back to the original chunks
+        for idx, embedding in zip(valid_indices, embeddings):
+            chunks[idx].embedding = embedding
 
         return chunks
+
 
 
 # Global service instance

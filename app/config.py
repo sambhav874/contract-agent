@@ -20,13 +20,18 @@ class Settings(BaseSettings):
     rabbitmq_url: str = "amqp://agent:agentpass@localhost:5672//"
 
     # Model Configuration
-    gemini_analysis_model: str = "gemini-1.5-pro"
-    gemini_fast_model: str = "gemini-2.0-flash"
+    gemini_analysis_model: str = "gemini-3.1-flash-lite-preview"
+    gemini_fast_model: str = "gemini-3.1-flash-lite-preview"
     voyage_model: str = "voyage-3"
 
     # Processing Configuration
     max_retrieval_rounds: int = 3
     chunk_batch_size: int = 128
+
+    # Safety Guard Configuration
+    max_cost_usd: float = 5.0
+    max_iterations: int = 15
+    max_tokens_per_request: int = 32768
 
     # Logging
     log_level: str = "INFO"

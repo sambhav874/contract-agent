@@ -90,10 +90,14 @@ class MongoDB:
 
     @classmethod
     async def insert_contract(cls, metadata: ContractMetadata) -> str:
-        """Insert a contract metadata document."""
+        """Insert or update a contract metadata document."""
         collection = cls.get_collection("contracts")
-        result = await collection.insert_one(metadata.model_dump())
-        return str(result.inserted_id)
+        await collection.update_one(
+            {"contract_id": metadata.contract_id},
+            {"$set": metadata.model_dump()},
+            upsert=True,
+        )
+        return metadata.contract_id
 
     @classmethod
     async def get_contract(cls, contract_id: str) -> dict[str, Any] | None:
@@ -105,7 +109,17 @@ class MongoDB:
     async def list_contracts(cls) -> list[dict[str, Any]]:
         """List all contracts."""
         collection = cls.get_collection("contracts")
-        return await collection.find({}, {"embedding": 0}).to_list(None)
+        contracts = await collection.find({}, {"embedding": 0}).sort("_id", -1).to_list(None)
+        unique_contracts: list[dict[str, Any]] = []
+        seen_contract_ids: set[str] = set()
+        for contract in contracts:
+            contract_id = contract.get("contract_id")
+            if contract_id in seen_contract_ids:
+                continue
+            if contract_id:
+                seen_contract_ids.add(contract_id)
+            unique_contracts.append(contract)
+        return unique_contracts
 
     @classmethod
     async def delete_contract(cls, contract_id: str) -> None:
@@ -161,7 +175,7 @@ class MongoDB:
         return job_data.get("job_id", str(result.inserted_id))
 
     # ── KPI Operations ────────────────────────────────────────────────
-    
+
     @classmethod
     async def upsert_kpis(cls, contract_id: str, kpis: list[dict[str, Any]]) -> int:
         """Insert or update KPIs for a contract."""
@@ -285,18 +299,57 @@ class MongoDB:
         """Update a breach result."""
         collection = cls.get_collection("breaches")
         from bson import ObjectId
-        
+
         # Try updating by breach_id string first
         result = await collection.update_one({"breach_id": breach_id}, {"$set": updates})
         if result.matched_count > 0:
             return True
-            
+
         # Try updating by MongoDB _id
         try:
             result = await collection.update_one({"_id": ObjectId(breach_id)}, {"$set": updates})
             return result.matched_count > 0
         except:
             return False
+
+    # ── Saved Q&A ───────────────────────────────────────────────────────
+
+    @classmethod
+    async def get_saved_qa(cls, contract_id: str) -> list[dict[str, Any]]:
+        collection = cls.get_collection("saved_qa")
+        return await collection.find({"contract_id": contract_id}).sort("updated_at", -1).to_list(None)
+
+    @classmethod
+    async def save_qa_pair(cls, contract_id: str, qa: dict[str, Any]) -> str:
+        collection = cls.get_collection("saved_qa")
+        qa["contract_id"] = contract_id
+        result = await collection.update_one(
+            {"qa_id": qa.get("qa_id")},
+            {"$set": qa},
+            upsert=True
+        )
+        return str(result.upserted_id or result.matched_count)
+
+    @classmethod
+    async def delete_saved_qa(cls, qa_id: str) -> bool:
+        collection = cls.get_collection("saved_qa")
+        result = await collection.delete_one({"qa_id": qa_id})
+        return result.deleted_count > 0
+
+    @classmethod
+    async def get_qa_categories(cls, contract_id: str) -> list[dict[str, Any]]:
+        collection = cls.get_collection("qa_categories")
+        return await collection.find({"contract_id": contract_id}).sort("updated_at", -1).to_list(None)
+
+    @classmethod
+    async def save_qa_categories(cls, contract_id: str, categories: list[dict[str, Any]]) -> None:
+        collection = cls.get_collection("qa_categories")
+        await collection.delete_many({"contract_id": contract_id})
+        for cat in categories:
+            cat["contract_id"] = contract_id
+        await collection.insert_many(categories)
+
+    # ── Vector Search Index ───────────────────────────────────────────────
 
     @staticmethod
     def vector_search_index_definition() -> dict:

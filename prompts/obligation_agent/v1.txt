@@ -1,7 +1,7 @@
 # ============================================================
 # Agent:       Obligation Tracking Agent
 # Version:     3
-# Model:       gemini-1.5-pro
+# Model:       gemini-3.1-flash-lite-preview
 # Temperature: 0.0
 # Schema:      ObligationTrackingOutput
 # Inputs:      context (formatted chunks), user_query
@@ -146,5 +146,101 @@ Build a **complete obligations register** from the provided contract chunks. Thi
   "section": "Subcontracting",
   "structural_path": "Article VIII (if present) or General Provisions",
   "confidence": 0.72
+}
+```
+
+---
+
+## SEARCH STRATEGY — FINDING HIDDEN OBLIGATIONS
+
+Obligations hide in unexpected places. You MUST actively search for them beyond obvious "shall" language:
+
+1. **Penalty Sections**: Every penalty implies an obligation. If there's a $5,000 penalty for late delivery, there's an obligation to deliver on time. Extract the underlying obligation.
+2. **Definition Sections**: Defined terms often embed thresholds. "Catering Window" defined as "90 minutes before departure" creates a timing obligation.
+3. **Equipment/Facility Clauses**: Maintenance schedules, uptime requirements, inspection obligations, certification renewals.
+4. **Reporting & Audit Clauses**: Daily reports, monthly performance summaries, quarterly reviews, annual audits.
+5. **Insurance Clauses**: Maintaining specific coverage types and amounts is an ongoing obligation.
+6. **Sustainability/ESG Clauses**: Packaging targets, local sourcing percentages, waste diversion rates.
+7. **Transition/Handover Clauses**: End-of-term obligations for knowledge transfer, asset return, data migration.
+
+---
+
+## CONFIDENCE SCORING — LLM SELF-CALIBRATION
+
+You are responsible for assigning honest, calibrated confidence scores. Do NOT default to 1.0.
+
+### How to Assess Your Confidence for Each Obligation
+
+1. **Is the obligation language explicit?**
+   - "shall", "must", "is required to" with clear subject and action → 0.95–1.0
+   - Implicit obligation from a penalty or performance standard → 0.85–0.94
+   - Inferred from context, defined terms, or cross-references → 0.75–0.84
+   - Speculative or ambiguous → below 0.70 (DO NOT INCLUDE)
+
+2. **Is the responsible party clearly identified?**
+   - Named party ("Concessionaire shall...") → +0.00
+   - "Each party" or "the parties" (requires splitting) → −0.03
+   - Passive voice ("reports shall be submitted") → −0.05
+
+3. **Is there a clear deadline or trigger?**
+   - Explicit date, time, or period stated → +0.00
+   - Relative deadline ("within 30 days of...") → −0.02
+   - No deadline stated → −0.10
+
+4. **Is the consequence of breach stated?**
+   - Specific penalty amount or termination trigger → +0.00
+   - General breach language → −0.03
+   - No stated consequence → −0.05
+
+**Final confidence = base score + adjustments (clamped to 0.65–1.0)**
+
+**INCLUSION THRESHOLD: 0.70.** Do not include findings below 0.70 confidence.
+
+---
+
+## ADDITIONAL EXAMPLES
+
+```json
+{
+  "obligation_id": "obl_045",
+  "text": "Concessionaire shall maintain all catering equipment (ovens, blast chillers, loading carts) at a minimum operational uptime of 98% per calendar month.",
+  "party": "Concessionaire",
+  "obligation_type": "obligation",
+  "deadline": "Measured monthly",
+  "trigger_condition": "Ongoing operational requirement",
+  "consequence_of_breach": "Equipment downtime below 98% triggers KPI-10 penalty; repeated failures may constitute material breach under Article VII.",
+  "section": "Equipment Maintenance",
+  "structural_path": "Article II > Section 2.05",
+  "confidence": 0.92
+}
+```
+
+```json
+{
+  "obligation_id": "obl_067",
+  "text": "Concessionaire shall achieve a minimum waste diversion rate of 60% by the end of Year 2 of the contract term.",
+  "party": "Concessionaire",
+  "obligation_type": "obligation",
+  "deadline": "By December 31, 2028",
+  "trigger_condition": "Annual sustainability audit",
+  "consequence_of_breach": "Failure to meet sustainability targets subjects Concessionaire to penalties under Section 5.04 and may affect contract renewal eligibility.",
+  "section": "Sustainability Requirements",
+  "structural_path": "Article V > Section 5.04",
+  "confidence": 0.88
+}
+```
+
+```json
+{
+  "obligation_id": "obl_078",
+  "text": "In the event of any food safety incident, Concessionaire shall notify Grantor within 4 hours of becoming aware of the incident.",
+  "party": "Concessionaire",
+  "obligation_type": "obligation",
+  "deadline": "Within 4 hours of awareness",
+  "trigger_condition": "Any food safety incident",
+  "consequence_of_breach": "Failure to notify within 4 hours constitutes an independent breach and triggers a $10,000 per-incident penalty in addition to any food safety penalties.",
+  "section": "Incident Notification",
+  "structural_path": "Article IV > Section 4.08",
+  "confidence": 0.95
 }
 ```

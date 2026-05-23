@@ -1,0 +1,184 @@
+{
+  "version": 1,
+  "description": "Compound query benchmark: multi-intent cases that require subtask decomposition, parallel agent dispatch, and synthesis coherence.",
+  "cases": [
+    {
+      "id": "compound_kpi_and_obligation_1",
+      "contract_id": "airport_food_contract",
+      "contract_file": "tests/fixtures/contracts/airport_food.md",
+      "query": "What are the on-time delivery penalties AND the reporting obligations?",
+      "expected_is_compound": true,
+      "expected_sub_intents": ["KPI_QUERY", "OBLIGATION_TRACK"],
+      "expected_sections": ["Section 4.02", "Section 6.01", "Section 6.02"],
+      "expected_keywords": ["98.5%", "$2,500", "$5,000", "daily reports", "10:00 AM", "monthly report", "10th"],
+      "expected_values": {
+        "on_time_target": "98.5%",
+        "tier_1_penalty": "$2,500",
+        "tier_2_penalty": "$5,000",
+        "daily_deadline": "10:00 AM",
+        "monthly_deadline": "10th"
+      },
+      "ragas_ground_truth": "Section 4.02 sets the on-time delivery target at 98.5%, with Tier 1 penalties of $2,500 per percentage point below 97% for 95.0%-96.9% and Tier 2 penalties of $5,000 per percentage point below 97% below 95.0%. Section 6.01 requires daily reports by 10:00 AM and Section 6.02 requires monthly reports by the 10th of the following month."
+    },
+    {
+      "id": "compound_risk_and_clause_1",
+      "contract_id": "airport_food_contract",
+      "contract_file": "tests/fixtures/contracts/airport_food.md",
+      "query": "Explain the termination clause AND list the associated risks.",
+      "expected_is_compound": true,
+      "expected_sub_intents": ["CLAUSE_LOOKUP", "RISK_ANALYSIS"],
+      "expected_sections": ["Section 7.01", "Section 7.02"],
+      "expected_keywords": ["Termination for Cause", "Termination for Convenience", "$500,000", "30 days", "180 days", "hospitalization"],
+      "expected_values": {
+        "penalty_threshold": "$500,000",
+        "cure_period": "30 days",
+        "convenience_notice": "180 days"
+      },
+      "ragas_ground_truth": "Section 7.01 (Termination for Cause) allows termination for three consecutive months of unsatisfactory KPI performance, food safety incidents resulting in hospitalization, penalty accumulation exceeding $500,000 annually, or material breach uncured after 30 days notice. Section 7.02 (Termination for Convenience) allows termination on 180 days written notice. Risks include: high financial exposure from penalty accumulation, reputational risk from food safety incidents, and operational risk from long convenience notice periods."
+    },
+    {
+      "id": "compound_summary_and_key_dates_1",
+      "contract_id": "saas_agreement",
+      "contract_file": "tests/fixtures/contracts/saas_agreement.md",
+      "query": "Summarize the contract and list all key dates.",
+      "expected_is_compound": true,
+      "expected_sub_intents": ["SUMMARY", "GENERAL_QUERY"],
+      "expected_sections": ["Article 1", "Article 2", "Article 10", "Exhibit B"],
+      "expected_keywords": ["March 1, 2025", "3 years", "90 days", "30 days", "60 days", "Initial Term", "Renewal"],
+      "expected_values": {
+        "effective_date": "March 1, 2025",
+        "initial_term": "3 years",
+        "renewal_notice": "90 days",
+        "breach_cure": "30 days",
+        "data_return": "60 days"
+      },
+      "ragas_ground_truth": "This SaaS Agreement is between CloudServe Technologies, Inc. (Provider) and Enterprise Solutions Corp. (Customer), effective March 1, 2025. Key dates: Initial Term of 3 years, automatic renewal with 90-day non-renewal notice, 30-day cure period for material breach, and 60 days for data return upon termination."
+    },
+    {
+      "id": "compound_sla_and_payment_1",
+      "contract_id": "saas_agreement",
+      "contract_file": "tests/fixtures/contracts/saas_agreement.md",
+      "query": "What is the uptime SLA AND what are the payment terms?",
+      "expected_is_compound": true,
+      "expected_sub_intents": ["KPI_QUERY", "GENERAL_QUERY"],
+      "expected_sections": ["Section 3.1", "Section 3.3", "Section 4.1", "Section 4.2"],
+      "expected_keywords": ["99.0%", "10%", "25%", "50%", "1.5%", "annually", "ninety (90) days"],
+      "expected_values": {
+        "uptime_commitment": "99.0%",
+        "service_credit_98": "10%",
+        "service_credit_97": "25%",
+        "service_credit_below": "50%",
+        "late_payment_interest": "1.5%",
+        "price_increase_notice": "90 days"
+      },
+      "ragas_ground_truth": "Provider commits to 99.0% uptime. Service credits: 10% of monthly fee for 98.0%-98.9% uptime, 25% for 97.0%-97.9%, and 50% below 97.0%. Payment terms: annual advance payment, 1.5% monthly interest on late payments, and 90-day notice for price increases up to 15%."
+    },
+    {
+      "id": "compound_obligation_and_compliance_1",
+      "contract_id": "logistics_agreement_v3",
+      "contract_file": "tests/fixtures/contracts/logistics_agreement_v3_production.md",
+      "query": "What are the supplier obligations AND generate a compliance report.",
+      "expected_is_compound": true,
+      "expected_sub_intents": ["OBLIGATION_TRACK", "COMPLIANCE"],
+      "expected_sections": ["ARTICLE 4", "ARTICLE 12"],
+      "expected_keywords": ["300 goods", "48 hours", "0.2%", "99%", "9.0", "50,000 INR", "10,000 INR", "5,000 INR"],
+      "expected_values": {
+        "min_delivery_volume": "300",
+        "late_delivery_threshold": "5%",
+        "damaged_goods_threshold": "0.2%",
+        "order_accuracy_target": "99%",
+        "safety_score_min": "9.0",
+        "volume_penalty": "50,000 INR",
+        "late_delivery_penalty": "10,000 INR",
+        "damaged_goods_credit": "5,000 INR"
+      },
+      "ragas_ground_truth": "Supplier obligations: minimum 300 goods/month delivery, delivery within 48 hours, damaged goods rate below 0.2%, order accuracy rate of at least 99%, and safety score of at least 9.0/10. Penalties: 50,000 INR for missed volume, 10,000 INR for >5% late deliveries, 5,000 INR per percentage point over damaged goods threshold."
+    },
+    {
+      "id": "compound_clause_and_kpi_1",
+      "contract_id": "logistics_agreement_v3",
+      "contract_file": "tests/fixtures/contracts/logistics_agreement_v3_production.md",
+      "query": "Explain the late delivery SLA AND the damaged goods threshold.",
+      "expected_is_compound": true,
+      "expected_sub_intents": ["CLAUSE_LOOKUP", "KPI_QUERY"],
+      "expected_sections": ["4.2", "4.3"],
+      "expected_keywords": ["48 hours", "5%", "10,000 INR", "0.2%", "5,000 INR", "credit"],
+      "expected_values": {
+        "delivery_window": "48 hours",
+        "late_delivery_threshold": "5%",
+        "late_delivery_penalty": "10,000 INR",
+        "damaged_goods_threshold": "0.2%",
+        "damaged_goods_credit": "5,000 INR"
+      },
+      "ragas_ground_truth": "Section 4.2 (Late Delivery SLA): All orders must be delivered within 48 hours. If more than 5% of monthly deliveries are late, a penalty of 10,000 INR applies. Section 4.3 (Damaged Goods Threshold): Supplier must maintain a damaged goods rate of less than 0.2% per month; if exceeded, the Supplier must credit the Client 5,000 INR per percentage point over the limit."
+    },
+    {
+      "id": "compound_termination_and_ip_1",
+      "contract_id": "saas_agreement",
+      "contract_file": "tests/fixtures/contracts/saas_agreement.md",
+      "query": "Explain the termination provisions AND the intellectual property rights.",
+      "expected_is_compound": true,
+      "expected_sub_intents": ["CLAUSE_LOOKUP", "GENERAL_QUERY"],
+      "expected_sections": ["Article 10", "Article 6"],
+      "expected_keywords": ["90 days", "30 days", "60 days", "intellectual property", "Customer Data", "Provider", "Feedback"],
+      "expected_values": {
+        "non_renewal_notice": "90 days",
+        "breach_cure_period": "30 days",
+        "data_return_period": "60 days"
+      },
+      "ragas_ground_truth": "Article 10: Agreement renews automatically for successive 1-year periods unless 90-day non-renewal notice is given. Termination for cause requires 30-day cure period. Upon termination: all unpaid fees due, Customer ceases using Service, Provider returns/destroys Customer Data within 60 days. Article 6: Provider retains all IP rights to the Service. Customer retains rights to Customer Data and grants Provider license to host/copy/transmit solely for providing Service. Customer grants Provider perpetual license to use Feedback."
+    },
+    {
+      "id": "compound_liability_and_confidentiality_1",
+      "contract_id": "saas_agreement",
+      "contract_file": "tests/fixtures/contracts/saas_agreement.md",
+      "query": "What is the liability cap AND what are the confidentiality obligations?",
+      "expected_is_compound": true,
+      "expected_sub_intents": ["GENERAL_QUERY", "CLAUSE_LOOKUP"],
+      "expected_sections": ["Section 9.2", "Section 7.1", "Section 7.3"],
+      "expected_keywords": ["fees paid", "twelve (12) months", "confidential", "three (3) years", "trade secrets"],
+      "expected_values": {
+        "liability_cap_basis": "fees paid in twelve months",
+        "confidentiality_survival": "three years",
+        "trade_secret_protection": "indefinitely"
+      },
+      "ragas_ground_truth": "Section 9.2: Each party's total aggregate liability is capped at fees paid in the twelve (12) months preceding the claim, except for confidentiality breaches, IP infringement, gross negligence, willful misconduct, and payment obligations. Section 7.1: Each party must protect Confidential Information, not disclose to third parties, and use only for Agreement purposes. Section 7.3: Confidentiality obligations survive for three (3) years from disclosure, except trade secrets which are protected indefinitely."
+    },
+    {
+      "id": "compound_security_and_breach_1",
+      "contract_id": "saas_agreement",
+      "contract_file": "tests/fixtures/contracts/saas_agreement.md",
+      "query": "What are the data security requirements AND the breach notification timeline?",
+      "expected_is_compound": true,
+      "expected_sub_intents": ["OBLIGATION_TRACK", "GENERAL_QUERY"],
+      "expected_sections": ["Section 5.1", "Section 5.2"],
+      "expected_keywords": ["encryption", "administrative", "physical", "technical", "seventy-two (72) hours", "unauthorized access"],
+      "expected_values": {
+        "breach_notification_hours": "72",
+        "security_measures": "administrative, physical, technical safeguards"
+      },
+      "ragas_ground_truth": "Section 5.1: Provider shall implement and maintain reasonable administrative, physical, and technical safeguards to protect Customer Data, including encryption in transit and at rest. Section 5.2: Provider shall notify Customer within seventy-two (72) hours of becoming aware of any unauthorized access to Customer Data."
+    },
+    {
+      "id": "compound_all_kpis_1",
+      "contract_id": "logistics_agreement_v3",
+      "contract_file": "tests/fixtures/contracts/logistics_agreement_v3_production.md",
+      "query": "List all KPIs and their penalties.",
+      "expected_is_compound": true,
+      "expected_sub_intents": ["KPI_QUERY"],
+      "expected_sections": ["4.1", "4.2", "4.3", "4.4", "4.5"],
+      "expected_keywords": ["300 goods", "48 hours", "0.2%", "99%", "9.0", "50,000 INR", "10,000 INR", "5,000 INR"],
+      "expected_values": {
+        "min_volume": "300 goods",
+        "delivery_sla": "48 hours",
+        "damaged_threshold": "0.2%",
+        "accuracy_target": "99%",
+        "safety_min": "9.0",
+        "volume_penalty": "50,000 INR",
+        "late_penalty": "10,000 INR",
+        "damaged_credit": "5,000 INR"
+      },
+      "ragas_ground_truth": "Article 4 KPIs: (1) Monthly Delivery Volume: minimum 300 goods, penalty 50,000 INR. (2) Late Delivery SLA: delivery within 48 hours, penalty 10,000 INR if >5% late. (3) Damaged Goods Threshold: <0.2%, credit 5,000 INR per point over. (4) Order Accuracy: >=99%. (5) Safety Compliance: >=9.0/10."
+    }
+  ]
+}

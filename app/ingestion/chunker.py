@@ -68,13 +68,19 @@ def hierarchical_chunk(
         # MACRO: Top-level headers (Articles, Parts, Exhibits)
         # Usually level 0 or 1, but we'll take anything that's a root or near-root
         is_macro = section.level <= 2 or section.parent_id is None
-        
+
         if is_macro:
             chunk_level = "macro"
         else:
             chunk_level = "meso"
 
+        # Skip empty sections
+        section_text = text[section.char_start:section.char_end]
+        if not section_text or not section_text.strip():
+            continue
+
         # Create the chunk
+
         main_chunk = create_chunk(
             text=text,
             contract_id=contract_id,
@@ -91,7 +97,7 @@ def hierarchical_chunk(
         # However, if a section is very large (> 4000 tokens), we should split it.
         section_text = text[section.char_start:section.char_end]
         section_tokens = count_tokens(section_text)
-        
+
         if section_tokens > macro_tokens[1]:
             # This is a massive section, split into meso parts
             meso_parts = split_section_to_meso(
@@ -330,17 +336,17 @@ def create_micro_chunks(
                 if overlap / union > 0.8:
                     is_duplicate = True
                     break
-            
+
             if is_duplicate:
                 continue
-                
+
             seen_ranges.add(range_key)
 
             micro_text = section_text[context_start:context_end].strip()
             token_count = count_tokens(micro_text)
 
             # Require at least 25 tokens of context to be meaningful
-            if 25 <= token_count <= 400:  
+            if 25 <= token_count <= 400:
                 chunk = ChunkDocument(
                     chunk_id=f"{contract_id}_micro_{char_start}_{start}",
                     contract_id=contract_id,

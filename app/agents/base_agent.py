@@ -162,6 +162,7 @@ class BaseAgent(ABC):
                 ),
                 response_schema=self.output_schema.model_json_schema(),
                 temperature=0.0,
+                enable_thinking=True,
             )
 
             # Try to validate
@@ -174,7 +175,12 @@ class BaseAgent(ABC):
                     if validation_error:
                         raise ValidationError.from_exception_data(
                             title="CitationError",
-                            line_errors=[{"loc": ("citations",), "msg": validation_error, "type": "value_error"}],
+                            line_errors=[{
+                                "loc": ("citations",),
+                                "input": last_response,
+                                "type": "value_error",
+                                "ctx": {"error": ValueError(validation_error)},
+                            }],
                         )
 
                 # Agent signals it needs more data
@@ -229,6 +235,7 @@ class BaseAgent(ABC):
                     user_message=correction_prompt,
                     response_schema=self.output_schema.model_json_schema(),
                     temperature=0.0,
+                    enable_thinking=True,
                 )
                 return self.output_schema.model_validate(corrected)
             except ValidationError:

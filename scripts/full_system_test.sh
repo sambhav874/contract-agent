@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Configuration
-CONTRACT_PATH="tests/fixtures/airport_food.md"
+CONTRACT_PATH="tests/fixtures/contracts/airport_food.md"
 CONTRACT_ID="FINAL-TEST-GUARDIAN"
 OUTPUT_FILE="test_results_complete.txt"
 PYTHON="./venv/bin/python3"

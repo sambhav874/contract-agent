@@ -1,7 +1,7 @@
 # ============================================================
 # Agent:       KPI Extraction Agent
 # Version:     3
-# Model:       gemini-1.5-pro
+# Model:       gemini-3.1-flash-lite-preview
 # Temperature: 0.0
 # Schema:      KPIExtractionOutput
 # Inputs:      context (formatted chunks), user_query

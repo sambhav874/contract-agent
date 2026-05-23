@@ -56,14 +56,11 @@ def ingest(file_path: str, name: str | None = None, contract_id_opt: str | None 
     console.print(f"[bold blue]Ingesting:[/bold blue] {file_path}")
 
     # Parse contract
-    contract_metadata, structural_map = asyncio.run(parse_contract(file_path, name))
-    
+    contract_metadata, structural_map, text = asyncio.run(parse_contract(file_path, name))
+
     # Override ID if provided
     if contract_id_opt:
         contract_metadata.contract_id = contract_id_opt
-
-    with open(file_path, "r") as f:
-        text = f.read()
 
     # Create chunks
     chunks = hierarchical_chunk(text, contract_metadata.contract_id, structural_map)
@@ -73,7 +70,7 @@ def ingest(file_path: str, name: str | None = None, contract_id_opt: str | None 
 
     async def _run_ingestion():
         await MongoDB.connect()
-        
+
         # Handle overwrite
         existing = await MongoDB.get_contract(contract_metadata.contract_id)
         if existing:
@@ -91,7 +88,7 @@ def ingest(file_path: str, name: str | None = None, contract_id_opt: str | None 
         # Store in MongoDB
         await MongoDB.insert_contract(contract_metadata)
         await MongoDB.insert_chunks(embedded_chunks)
-        
+
         await MongoDB.disconnect()
 
     asyncio.run(_run_ingestion())
@@ -344,13 +341,13 @@ def delete(contract_id: str):
 @click.argument("contract_id")
 @click.option(
     "--csv", "csv_path",
-    default="exhaustive_kpis.csv",
+    default="data/kpis/exhaustive_kpis.csv",
     show_default=True,
     help="Ground-truth KPI CSV to evaluate against.",
 )
 @click.option(
     "--output", "-o",
-    default="evaluation_results_rag.json",
+    default="reports/evaluation/evaluation_results_rag.json",
     show_default=True,
     help="Path to write the evaluation report JSON.",
 )
@@ -436,6 +433,7 @@ def evaluate(contract_id: str, csv_path: str, output: str, max_samples: int, top
     # ── Save full report ──────────────────────────────────────────────
     out_path = Path(output)
     try:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
         with open(out_path, "w") as f:
             json.dump(report.to_dict(), f, indent=2, default=str)
         console.print(f"[green]✓ Full report saved → {out_path.resolve()}[/green]")
@@ -447,7 +445,7 @@ def evaluate(contract_id: str, csv_path: str, output: str, max_samples: int, top
 @click.argument("contract_id")
 @click.option(
     "--csv", "csv_path",
-    default="exhaustive_kpis.csv",
+    default="data/kpis/exhaustive_kpis.csv",
     show_default=True,
     help="Ground-truth KPI CSV to evaluate against.",
 )
@@ -640,12 +638,12 @@ def _display_kpi_result(result: dict[str, Any]) -> None:
         console.print(table)
     else:
         console.print("[yellow]No specific KPIs found in this contract context.[/yellow]")
-    
+
     # Financial Summary
     fin_summary = structured.get("financial_summary", "")
     if fin_summary:
         console.print(Panel(fin_summary, title="Financial Summary"))
-        
+
     # Penalties
     penalties = structured.get("penalties", [])
     if penalties:
@@ -663,17 +661,17 @@ def _save_result_to_file(result: dict[str, Any], filename: str, fmt: str) -> Non
             import csv
             structured = result.get("structured", {})
             kpis = structured.get("kpis", [])
-            
+
             if not kpis:
                 console.print("[yellow]No KPIs to save to CSV.[/yellow]")
                 return
-                
+
             keys = kpis[0].keys()
             with open(filename, "w", newline="") as f:
                 writer = csv.DictWriter(f, fieldnames=keys)
                 writer.writeheader()
                 writer.writerows(kpis)
-        
+
         console.print(f"[green]✓ Saved to {filename}[/green]")
     except Exception as e:
         console.print(f"[red]Error saving file: {str(e)}[/red]")
@@ -689,15 +687,15 @@ def save_kpis(contract_id: str):
         if not job:
             console.print("[red]No completed KPI analysis found for this contract.[/red]")
             return
-        
+
         kpis = job.get("result", {}).get("structured", {}).get("kpis", [])
         if not kpis:
             console.print("[yellow]No KPIs found in analysis result.[/yellow]")
             return
-            
+
         count = await MongoDB.upsert_kpis(contract_id, kpis)
         console.print(f"[green]✓ Persisted {count} KPIs to the vault.[/green]")
-    
+
     asyncio.run(_run())
 
 
@@ -706,25 +704,25 @@ def save_kpis(contract_id: str):
 def check_breaches(contract_id: str):
     """Compare all actuals against KPI targets and detect breaches."""
     from app.agents.breach_engine import BreachEngine
-    
+
     async def _run():
         await MongoDB.connect()
         kpis = await MongoDB.get_kpis(contract_id)
         actuals_raw = await MongoDB.get_all_actuals(contract_id)
-        
+
         if not kpis:
             console.print("[red]No KPIs found for this contract.[/red]")
             return
         if not actuals_raw:
             console.print("[yellow]No actual performance data found.[/yellow]")
             return
-            
+
         # Map kpis by id for easy lookup (Normalized to lowercase/snake_case)
         def normalize_id(idx):
             return str(idx).lower().replace("-", "_")
 
         kpi_map = {normalize_id(k["kpi_id"]): k for k in kpis}
-        
+
         # Aggregate (Average) actuals across the period
         actuals_by_kpi = {}
         for a in actuals_raw:
@@ -732,15 +730,15 @@ def check_breaches(contract_id: str):
             if norm_id not in actuals_by_kpi:
                 actuals_by_kpi[norm_id] = []
             actuals_by_kpi[norm_id].append(a)
-            
+
         actuals = []
         for norm_id, data in actuals_by_kpi.items():
             kpi = kpi_map.get(norm_id)
             if not kpi: continue
-            
+
             agg_type = kpi.get("aggregation_type", "avg")
             vals = [float(d.get("value", 0)) for d in data]
-            
+
             if agg_type == "sum":
                 final_val = sum(vals)
             elif agg_type == "min":
@@ -753,14 +751,14 @@ def check_breaches(contract_id: str):
                 final_val = sorted_data[0].get("value", 0)
             else: # avg
                 final_val = sum(vals) / len(vals) if vals else 0
-                
+
             # Use the latest record as the base for metadata, but override the value
             latest_record = sorted(data, key=lambda x: x.get("timestamp", ""), reverse=True)[0]
             latest_record["value"] = round(float(final_val), 2)
             latest_record["sample_count"] = len(data)
             latest_record["agg_used"] = agg_type
             actuals.append(latest_record)
-        
+
         table = Table(title=f"Breach Report: {contract_id}", show_lines=True)
         table.add_column("KPI", style="cyan")
         table.add_column("Target", style="dim")
@@ -768,14 +766,14 @@ def check_breaches(contract_id: str):
         table.add_column("Status", justify="center")
         table.add_column("Penalty Triggered", style="yellow")
         table.add_column("Required Remediation", style="magenta")
-        
+
         breaches_found = 0
         for actual in actuals:
             kpi = kpi_map.get(normalize_id(actual["kpi_id"]))
             if not kpi: continue
-            
+
             result = BreachEngine.check_breach(kpi, actual, sample_count=actual.get("sample_count", 1))
-            
+
             # Always insert the breach result so the UI can show "OK" statuses and latest actuals
             await MongoDB.insert_breach(result.model_dump())
 
@@ -784,7 +782,7 @@ def check_breaches(contract_id: str):
             if result.is_breach:
                 status = "[red]BREACH[/red]"
                 breaches_found += 1
-                
+
                 # Get remediation from kpi vault
                 rem = kpi.get("remediation")
                 sla = kpi.get("remediation_sla")
@@ -792,7 +790,7 @@ def check_breaches(contract_id: str):
                     remediation_info = f"{rem}"
                     if sla:
                         remediation_info += f" [dim](SLA: {sla})[/dim]"
-                
+
             table.add_row(
                 kpi["name"],
                 f"{kpi['operator']} {kpi['value_min']} {kpi['unit']}",
@@ -802,13 +800,13 @@ def check_breaches(contract_id: str):
                 remediation_info
             )
 
-            
+
         console.print(table)
         if breaches_found > 0:
             console.print(f"[bold red]⚠ {breaches_found} breach(es) detected![/bold red]")
         else:
             console.print("[bold green]✅ All KPIs are currently on track.[/bold green]")
-            
+
     asyncio.run(_run())
 
 
@@ -822,12 +820,12 @@ def list_kpis(contract_id: str):
         if not kpis:
             console.print("[yellow]No KPIs found.[/yellow]")
             return
-            
+
         table = Table(title="KPI Vault")
         table.add_column("ID", style="cyan")
         table.add_column("Name", style="green")
         table.add_column("Threshold", style="yellow")
-        
+
         for kpi in kpis:
             table.add_row(kpi["kpi_id"], kpi["name"], f"{kpi['operator']} {kpi['value_min']} {kpi['unit']}")
         console.print(table)
@@ -844,7 +842,7 @@ def list_kpis(contract_id: str):
 def ingest_actuals(contract_id: str, file: str | None = None, kpi_id: str | None = None, value: float | None = None, unit: str | None = None, source: str = "structured"):
     """Ingest structured performance data (CSV/JSON or single values)."""
     from app.db.models import OperationalActual
-    
+
     async def _run():
         await MongoDB.connect()
         actuals_to_insert = []
@@ -894,7 +892,7 @@ def ingest_actuals(contract_id: str, file: str | None = None, kpi_id: str | None
                                         num = num_match.group(1)
                                         if f"kpi_{num}" in pattern_map:
                                             target_id = pattern_map[f"kpi_{num}"]
-                            
+
                             if target_id not in kpi_ids:
                                 console.print(f"[yellow]Warning: KPI ID '{raw_id}' not found in vault. Ingesting as-is.[/yellow]")
 
@@ -915,7 +913,7 @@ def ingest_actuals(contract_id: str, file: str | None = None, kpi_id: str | None
                             items = data
                         else:
                             items = [data]
-                            
+
                         for item in items:
                             if not isinstance(item, dict):
                                 continue
@@ -925,7 +923,7 @@ def ingest_actuals(contract_id: str, file: str | None = None, kpi_id: str | None
             except Exception as e:
                 console.print(f"[red]Error parsing file: {e}[/red]")
                 return
-        
+
         elif kpi_id and value is not None:
             actuals_to_insert.append(OperationalActual(
                 contract_id=contract_id,
@@ -934,14 +932,14 @@ def ingest_actuals(contract_id: str, file: str | None = None, kpi_id: str | None
                 unit=unit or "",
                 source=source
             ))
-        
+
         if not actuals_to_insert:
             console.print("[yellow]No data provided to ingest. Use --file or --kpi-id/--value.[/yellow]")
             return
 
         for actual in actuals_to_insert:
             await MongoDB.insert_actual(actual.model_dump())
-        
+
         console.print(f"[green]✓ Successfully ingested {len(actuals_to_insert)} actual(s).[/green]")
 
     asyncio.run(_run())

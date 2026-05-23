@@ -25,6 +25,7 @@ from typing import Any, List
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_core.retrievers import BaseRetriever
+from pydantic import ConfigDict
 
 from app.ingestion.embedder import get_embedding_service
 from app.retrieval.retriever import get_retriever
@@ -91,8 +92,7 @@ class ContractHybridRetriever(BaseRetriever):
     levels: list[str] | None = None
     top_k: int = 15
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def _get_relevant_documents(self, query: str, **kwargs: Any) -> List[Document]:
         """Sync retrieval (runs the async method in an event loop)."""

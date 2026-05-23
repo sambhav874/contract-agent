@@ -41,9 +41,9 @@ class RagasEvaluator:
     """Evaluates RAG performance using the Ragas framework."""
 
     def __init__(self, model_name: str | None = None):
-        # answer_relevancy uses n>1 candidates — requires gemini-2.0-flash or later,
-        # NOT lite/preview models. Hard-pin to gemini-2.0-flash for the judge.
-        judge_model = model_name or "gemini-2.0-flash"
+        # answer_relevancy uses n>1 candidates — requires gemini-3.1-flash-lite-preview or later,
+        # NOT lite/preview models. Hard-pin to gemini-3.1-flash-lite-preview for the judge.
+        judge_model = model_name or "gemini-3.1-flash-lite-preview"
         self.llm = ChatGoogleGenerativeAI(
             model=judge_model,
             google_api_key=settings.gemini_api_key,
@@ -80,8 +80,12 @@ class RagasEvaluator:
         self, contract_id: str, test_set: List[Dict[str, str]]
     ) -> Dataset:
         """
-        Async phase: Run retrieval and generation for each test sample.
+        Async phase: Run standalone retrieval and generation for each test sample.
         Returns a Hugging Face Dataset ready for ragas.evaluate().
+
+        This is useful for retriever smoke tests. For agent quality gates prefer
+        build_dataset_from_samples(), which scores the actual agent answer and
+        actual retrieved/tool contexts.
         """
         vector_store = self._get_vector_store()
 
@@ -122,6 +126,32 @@ class RagasEvaluator:
                 "answer": answers,
                 "contexts": contexts,
                 "ground_truth": ground_truths,
+            }
+        )
+
+    def build_dataset_from_samples(self, samples: List[Dict[str, Any]]) -> Dataset:
+        """
+        Build a Ragas dataset from already-run agent traces.
+
+        Each sample must include:
+          - question
+          - answer
+          - contexts: list[str]
+          - ground_truth
+        """
+        usable = [
+            sample for sample in samples
+            if sample.get("question")
+            and sample.get("answer")
+            and sample.get("contexts")
+            and sample.get("ground_truth")
+        ]
+        return Dataset.from_dict(
+            {
+                "question": [sample["question"] for sample in usable],
+                "answer": [sample["answer"] for sample in usable],
+                "contexts": [sample["contexts"] for sample in usable],
+                "ground_truth": [sample["ground_truth"] for sample in usable],
             }
         )
 

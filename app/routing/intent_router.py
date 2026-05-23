@@ -1,5 +1,21 @@
-"""Intent routing and query planning — structural-map-aware version."""
+"""
+Intent routing and query planning — LLM-driven, structural-map-aware.
 
+The intent router translates a user intent label + optional free-text query
+into a QueryPlan that tells the retrieval layer:
+  - which chunk levels to fetch (macro / meso / micro)
+  - which section tags to prioritise
+  - how many retrieval rounds to allow
+  - whether a structural-map pass is required
+  - which output schema to target
+
+All routing logic is handled by Gemini Flash.  The only hardcoded fallback
+is a static table used when Gemini is unavailable.
+"""
+
+from __future__ import annotations
+
+import re
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -8,6 +24,8 @@ from app.config import settings
 from app.db.models import StructuralMap
 from app.llm.gemini_client import call_gemini
 
+
+# ── Data model ────────────────────────────────────────────────────────────────
 
 class QueryPlan(BaseModel):
     """Query plan produced by the intent router."""
@@ -22,53 +40,102 @@ class QueryPlan(BaseModel):
     analysis_mode: str = "plain"
 
 
-# ── Static fallback mappings ──────────────────────────────────────────
+# ── Valid chunk levels ────────────────────────────────────────────────────────
 
-_INTENT_TAGS: dict[str, list[str]] = {
-    "risk":        ["indemnification", "liability", "warranty", "representation",
-                    "termination", "dispute_resolution", "force_majeure", "ip_ownership"],
-    "kpi":         ["payment", "milestone", "sla", "penalty", "schedule"],
-    "clause":      [],   # determined dynamically from structural map
-    "obligations": ["covenants", "notice", "termination", "payment"],
-    "summary":     ["recitals", "definitions"],
-    "redflags":    [],   # map pass covers all sections
-    "query":       [],
+_VALID_LEVELS = {"macro", "meso", "micro"}
+
+_LEVEL_ALIASES: dict[str, str] = {
+    "section": "macro",
+    "article": "macro",
+    "clause":  "meso",
+    "provision": "meso",
+    "sentence": "micro",
+    "paragraph": "micro",
+    "item": "micro",
 }
 
-_INTENT_LEVELS: dict[str, list[str]] = {
-    "risk":        ["meso", "macro"],
-    "kpi":         ["micro", "meso", "macro"],
-    "clause":      ["meso"],
-    "obligations": ["meso", "micro"],
-    "summary":     ["macro"],
-    "redflags":    ["macro", "meso"],
-    "query":       ["meso"],
+def _normalize_levels(raw: list[str], fallback: list[str]) -> list[str]:
+    out = []
+    for lvl in raw:
+        lvl_lower = lvl.lower()
+        if lvl_lower in _VALID_LEVELS:
+            out.append(lvl_lower)
+        else:
+            for alias, canonical in _LEVEL_ALIASES.items():
+                if alias in lvl_lower:
+                    out.append(canonical)
+                    break
+    seen: set[str] = set()
+    deduped = [x for x in out if not (x in seen or seen.add(x))]  # type: ignore[func-returns-value]
+    return deduped or fallback
+
+
+# ── Static fallback table ─────────────────────────────────────────────────────
+
+_FALLBACK: dict[str, dict[str, Any]] = {
+    "CLAUSE_LOOKUP":    {"levels": ["meso"],           "rounds": 3, "schema": "ClauseAnalysisOutput",    "map_pass": True,  "mode": "legal"},
+    "SUMMARY":          {"levels": ["macro"],           "rounds": 2, "schema": "SummaryOutput",           "map_pass": True,  "mode": "plain"},
+    "OBLIGATION_TRACK": {"levels": ["meso", "micro"],   "rounds": 3, "schema": "ObligationTrackingOutput","map_pass": False, "mode": "plain"},
+    "KPI_QUERY":        {"levels": ["micro", "meso"],   "rounds": 4, "schema": "KPIExtractionOutput",     "map_pass": True,  "mode": "plain"},
+    "COMPLIANCE":       {"levels": ["meso", "micro"],   "rounds": 3, "schema": "KPIExtractionOutput",     "map_pass": False, "mode": "plain"},
+    "RISK_ANALYSIS":    {"levels": ["macro", "meso"],   "rounds": 3, "schema": "RiskAnalysisOutput",      "map_pass": True,  "mode": "legal"},
+    "DATA_VIZ":         {"levels": ["micro", "meso"],   "rounds": 3, "schema": "KPIExtractionOutput",     "map_pass": False, "mode": "plain"},
+    "DIAGRAM":          {"levels": ["macro", "meso"],   "rounds": 2, "schema": "",                        "map_pass": True,  "mode": "plain"},
+    "QA_GENERATE":      {"levels": ["macro"],           "rounds": 2, "schema": "",                        "map_pass": True,  "mode": "plain"},
+    "QA_ANSWER":        {"levels": ["meso", "micro"],   "rounds": 4, "schema": "",                        "map_pass": False, "mode": "plain"},
+    "CONVERSATIONAL":   {"levels": [],                  "rounds": 0, "schema": "",                        "map_pass": False, "mode": "plain"},
+    "GENERAL_QUERY":    {"levels": ["meso"],            "rounds": 3, "schema": "",                        "map_pass": False, "mode": "plain"},
 }
 
-_INTENT_SCHEMA: dict[str, str] = {
-    "risk":        "RiskAnalysisOutput",
-    "kpi":         "KPIExtractionOutput",
-    "clause":      "ClauseAnalysisOutput",
-    "obligations": "ObligationTrackingOutput",
-    "summary":     "SummaryOutput",
-    "redflags":    "RedFlagOutput",
+
+# ── Router system prompt ──────────────────────────────────────────────────────
+
+_ROUTER_SYSTEM_PROMPT = """\
+You are a query planner for a contract analysis retrieval system.
+
+Given:
+  - INTENT: a high-level intent label (see taxonomy below)
+  - USER_QUERY: the original user question (may be empty)
+  - STRUCTURAL_HINTS: section titles that are structurally relevant (may be empty)
+  - CONTRACT_SECTIONS: a compact list of section titles from the contract (may be empty)
+
+Produce a JSON QueryPlan with these fields:
+{
+  "intent": "<intent label>",
+  "sub_intents": ["<optional secondary intents>"],
+  "priority_section_tags": ["<section titles or tags to prioritize>"],
+  "chunk_levels": ["macro"|"meso"|"micro"],
+  "map_pass_required": true|false,
+  "max_retrieval_rounds": <int 1-5>,
+  "output_schema_name": "<schema name or empty string>",
+  "analysis_mode": "plain"|"legal"|"financial"
 }
 
-_MAP_PASS_INTENTS = {"redflags", "clause", "summary", "kpi"}
+INTENT TAXONOMY:
+  CONVERSATIONAL   → no retrieval needed (chunk_levels=[], rounds=0)
+  CLAUSE_LOOKUP    → find named section or explain clause text (meso, legal mode)
+  SUMMARY          → high-level overview (macro)
+  OBLIGATION_TRACK → duties per party (meso+micro)
+  KPI_QUERY        → specific KPI details (micro+meso, map_pass=true)
+  COMPLIANCE       → breach/penalty status (meso+micro, use DB data)
+  DATA_VIZ         → chart/dashboard (micro+meso, use structured data)
+  DIAGRAM          → flowchart/structure (macro+meso, map_pass=true)
+  QA_GENERATE      → generate questions (macro, map_pass=true)
+  QA_ANSWER        → answer specific factual question(s) (meso+micro, rounds=4)
+  RISK_ANALYSIS    → red flags / risks (macro+meso, legal mode)
+  GENERAL_QUERY    → any other (meso, rounds=3)
+
+RULES:
+- priority_section_tags should be specific section titles from CONTRACT_SECTIONS that are relevant.
+- For CONVERSATIONAL intent, always return chunk_levels=[] and max_retrieval_rounds=0.
+- For KPI-related intents, max_retrieval_rounds should be at least 3.
+- Prefer meso+micro for questions requiring exact clause text.
+- Prefer macro for high-level structure questions.
+- Output ONLY the JSON object, no markdown, no explanation.
+"""
 
 
-_ROUNDS: dict[str, int] = {
-    "risk":        3,
-    "kpi":         4,
-    "clause":      3,
-    "obligations": 3,
-    "summary":     2,
-    "redflags":    3,
-    "query":       2,
-}
-
-
-# ── Public entry point ────────────────────────────────────────────────
+# ── Public entry point ────────────────────────────────────────────────────────
 
 async def route_intent(
     intent: str,
@@ -76,24 +143,26 @@ async def route_intent(
     structural_map: StructuralMap | None = None,
 ) -> QueryPlan:
     """
-    Route user intent to a QueryPlan.
+    Route a user intent to a QueryPlan.
 
-    Tries Gemini Flash for intelligent routing; falls back to hardcoded
-    mappings augmented with structural-map section titles.
+    1. Extracts structural hints from the contract map.
+    2. Attempts LLM-driven routing via Gemini Flash.
+    3. Falls back to static table if Gemini fails.
     """
-    # Always extract structural hints — even for the hardcoded fallback
     structural_hints = _extract_structural_hints(intent, structural_map)
 
     try:
         plan = await _route_with_gemini(intent, user_query, structural_map, structural_hints)
-        # Ensure structural hints are always included (Gemini may miss them)
-        plan.priority_section_tags = _merge_tags(plan.priority_section_tags, structural_hints)
+        # Always merge structural hints — Gemini may have omitted some
+        plan.priority_section_tags = _merge_unique(
+            plan.priority_section_tags, structural_hints
+        )
         return plan
     except Exception:
-        return _route_hardcoded(intent, user_query, structural_hints)
+        return _route_fallback(intent, structural_hints)
 
 
-# ── Gemini routing ────────────────────────────────────────────────────
+# ── Gemini routing ────────────────────────────────────────────────────────────
 
 async def _route_with_gemini(
     intent: str,
@@ -101,169 +170,134 @@ async def _route_with_gemini(
     structural_map: StructuralMap | None,
     structural_hints: list[str],
 ) -> QueryPlan:
-    """Use Gemini Flash to build an intelligent query plan."""
-    try:
-        with open("prompts/intent_router/v2.txt", "r") as f:
-            system_prompt = f.read()
-    except FileNotFoundError:
-        system_prompt = _fallback_router_system_prompt()
-
-    # Compact section list for context (avoid large payloads)
-    section_list = ""
+    section_lines: list[str] = []
     if structural_map:
-        sections = structural_map.sections[:80]   # cap at 80 sections
-        lines = [
-            f"  level={s.level} | id={s.section_id[:20]} | title={s.title[:60]}"
-            for s in sections
-        ]
-        section_list = "CONTRACT SECTIONS:\n" + "\n".join(lines)
+        for s in structural_map.sections[:80]:
+            section_lines.append(
+                f"  level={s.level} | id={s.section_id[:20]} | title={s.title[:60]}"
+            )
 
     user_message = (
         f"INTENT: {intent}\n"
-        f"USER QUERY: {user_query or 'N/A'}\n"
-        f"STRUCTURAL HINTS FROM MAP: {structural_hints}\n\n"
-        f"{section_list}\n\n"
-        "Produce the QueryPlan JSON."
+        f"USER_QUERY: {user_query or 'N/A'}\n"
+        f"STRUCTURAL_HINTS: {structural_hints}\n\n"
+        f"CONTRACT_SECTIONS:\n" + ("\n".join(section_lines) if section_lines else "  (none provided)") +
+        "\n\nProduce the QueryPlan JSON."
     )
 
     response = await call_gemini(
         model=settings.gemini_fast_model,
-        system_prompt=system_prompt,
+        system_prompt=_ROUTER_SYSTEM_PROMPT,
         user_message=user_message,
         temperature=0.0,
     )
 
-    max_rounds = int(response.get("max_retrieval_rounds", _ROUNDS.get(intent, 3)))
-    if intent == "kpi" and max_rounds < 3:
-        max_rounds = 3
+    # call_gemini returns a dict if JSON was parsed, else a string
+    if isinstance(response, str):
+        cleaned = re.sub(r"```(?:json)?", "", response).strip().rstrip("`").strip()
+        import json
+        response = json.loads(cleaned)
 
-    # Normalize chunk levels to match our schema (macro, meso, micro)
-    raw_levels = response.get("chunk_levels", _INTENT_LEVELS.get(intent, ["meso"]))
-    valid_levels = {"macro", "meso", "micro"}
-    normalized_levels = []
-    for lvl in raw_levels:
-        lvl_lower = lvl.lower()
-        if lvl_lower in valid_levels:
-            normalized_levels.append(lvl_lower)
-        elif "section" in lvl_lower or "article" in lvl_lower:
-            normalized_levels.append("macro")
-        elif "clause" in lvl_lower or "provision" in lvl_lower:
-            normalized_levels.append("meso")
-        elif "sentence" in lvl_lower or "paragraph" in lvl_lower or "item" in lvl_lower:
-            normalized_levels.append("micro")
-    
-    if not normalized_levels:
-        normalized_levels = _INTENT_LEVELS.get(intent, ["meso"])
+    raw_levels = response.get("chunk_levels", [])
+    fallback_levels = _FALLBACK.get(intent, {}).get("levels", ["meso"])
+    levels = _normalize_levels(raw_levels, fallback_levels)
+
+    # KPI intents get at least 3 rounds
+    rounds = int(response.get("max_retrieval_rounds", _FALLBACK.get(intent, {}).get("rounds", 3)))
+    if intent in ("KPI_QUERY", "COMPLIANCE") and rounds < 3:
+        rounds = 3
 
     return QueryPlan(
         intent=response.get("intent", intent),
         sub_intents=response.get("sub_intents", []),
         priority_section_tags=response.get("priority_section_tags", []),
-        chunk_levels=normalized_levels,
-        map_pass_required=response.get("map_pass_required", intent in _MAP_PASS_INTENTS),
-        max_retrieval_rounds=max_rounds,
-        output_schema_name=response.get("output_schema_name", _INTENT_SCHEMA.get(intent, "")),
+        chunk_levels=levels,
+        map_pass_required=bool(response.get("map_pass_required", False)),
+        max_retrieval_rounds=rounds,
+        output_schema_name=response.get("output_schema_name", ""),
         analysis_mode=response.get("analysis_mode", "plain"),
     )
 
 
+# ── Static fallback ───────────────────────────────────────────────────────────
 
-# ── Hardcoded fallback ────────────────────────────────────────────────
-
-def _route_hardcoded(
-    intent: str,
-    user_query: str | None,
-    structural_hints: list[str],
-) -> QueryPlan:
-    """Pure static routing, augmented with structural hints."""
-    tags = list(_INTENT_TAGS.get(intent, []))
-    tags = _merge_tags(tags, structural_hints)
-
+def _route_fallback(intent: str, structural_hints: list[str]) -> QueryPlan:
+    cfg = _FALLBACK.get(intent, _FALLBACK["GENERAL_QUERY"])
     return QueryPlan(
         intent=intent,
         sub_intents=[],
-        priority_section_tags=tags,
-        chunk_levels=_INTENT_LEVELS.get(intent, ["meso"]),
-        map_pass_required=intent in _MAP_PASS_INTENTS,
-        max_retrieval_rounds=_ROUNDS.get(intent, 3),
-        output_schema_name=_INTENT_SCHEMA.get(intent, ""),
-        analysis_mode="legal" if intent in {"clause", "risk"} else "plain",
+        priority_section_tags=structural_hints,
+        chunk_levels=cfg["levels"],
+        map_pass_required=cfg["map_pass"],
+        max_retrieval_rounds=cfg["rounds"],
+        output_schema_name=cfg["schema"],
+        analysis_mode=cfg["mode"],
     )
 
 
-# ── Structural hint extraction ────────────────────────────────────────
+# ── Structural hint extraction ────────────────────────────────────────────────
+
+# Intent → keywords that indicate a section is relevant
+_INTENT_SECTION_KEYWORDS: dict[str, list[str]] = {
+    "RISK_ANALYSIS":    ["indemnif", "liabilit", "terminat", "warrant", "ip ", "force",
+                         "dispute", "arbitrat", "penalty", "damages"],
+    "KPI_QUERY":        ["kpi", "performance", "sla", "penalty", "payment", "price",
+                         "schedule", "target", "milestone", "specification", "standards",
+                         "reporting", "audit"],
+    "COMPLIANCE":       ["kpi", "performance", "sla", "penalty", "breach", "remedy",
+                         "remediation", "cure", "notice of breach"],
+    "OBLIGATION_TRACK": ["shall", "must", "obligat", "covenant", "notice", "report",
+                         "payment", "terminat"],
+    "SUMMARY":          ["recital", "whereas", "article i", "article 1",
+                         "definition", "term ", "overview"],
+    "DIAGRAM":          ["process", "workflow", "escalation", "procedure", "governance"],
+}
+
+# Broad-sweep intents include all top-level sections
+_BROAD_INTENTS = {"CLAUSE_LOOKUP", "RISK_ANALYSIS", "QA_GENERATE"}
+
 
 def _extract_structural_hints(
     intent: str,
     structural_map: StructuralMap | None,
 ) -> list[str]:
-    """
-    Extract relevant section titles/IDs from the structural map based on intent.
-
-    Returns a list of structural path strings that can be added to
-    priority_section_tags so the retriever can do targeted structural search.
-    """
     if not structural_map:
         return []
 
-    # Keywords that signal relevance per intent
-    _INTENT_KEYWORDS: dict[str, list[str]] = {
-        "risk":        ["indemnif", "liabilit", "terminat", "warrant", "ip ", "force",
-                        "dispute", "arbitrat", "penalty", "damages"],
-        "kpi":         ["kpi", "performance", "sla", "penalty", "payment", "price",
-                        "exhibit", "schedule", "target", "milestone", "article iv",
-                        "article 4", "section 4", "section 3.0", "specification", "standards",
-                        "reporting", "audit", "notice", "party", "contact"],
-        "clause":      [],   # all sections
-        "obligations": ["shall", "must", "obligat", "covenant", "notice", "report",
-                        "payment", "terminat"],
-        "summary":     ["recital", "whereas", "article i", "article 1", "article ii",
-                        "article 2", "definition", "term "],
-        "redflags":    [],   # all sections
-        "query":       [],
-    }
-
-    keywords = _INTENT_KEYWORDS.get(intent, [])
-
+    keywords = _INTENT_SECTION_KEYWORDS.get(intent, [])
     hints: list[str] = []
+
     for section in structural_map.sections:
         title_lower = section.title.lower()
 
-        # For broad-sweep intents, include all top-level sections
-        if intent in {"clause", "redflags"} and section.level <= 1:
+        # Broad intents: include all top-level sections
+        if intent in _BROAD_INTENTS and section.level <= 1:
             hints.append(section.title)
             continue
 
-        # For targeted intents, match keywords
+        # Targeted intents: match keywords
         if keywords and any(kw in title_lower for kw in keywords):
-            hints.append(section.title)
+            if section.title not in hints:
+                hints.append(section.title)
+            continue
 
-        # Always include sections with matching topic tags
-        for tag in section.topic_tags:
-            if tag in (_INTENT_TAGS.get(intent, []) + ["penalty", "sla", "payment"]):
-                if section.title not in hints:
-                    hints.append(section.title)
+        # Match section topic tags
+        relevant_tags = {"penalty", "sla", "payment", "kpi", "performance", "breach"}
+        for tag in getattr(section, "topic_tags", []):
+            if tag in relevant_tags and section.title not in hints:
+                hints.append(section.title)
                 break
 
-    # Cap at 40 to avoid context explosion but allow for complex contracts
-    return hints[:40]
+    return hints[:40]  # cap to avoid context overflow
 
 
-def _merge_tags(base: list[str], extra: list[str]) -> list[str]:
-    """Merge two tag lists, deduplicating while preserving order."""
+# ── Utility ───────────────────────────────────────────────────────────────────
+
+def _merge_unique(base: list[str], extra: list[str]) -> list[str]:
     seen: set[str] = set()
-    merged: list[str] = []
-    for t in base + extra:
-        if t not in seen:
-            seen.add(t)
-            merged.append(t)
-    return merged
-
-
-def _fallback_router_system_prompt() -> str:
-    return (
-        "You are a contract analysis intent router. "
-        "Given an intent and optional query, produce a JSON QueryPlan with: "
-        "intent, sub_intents, priority_section_tags, chunk_levels, "
-        "map_pass_required, max_retrieval_rounds, output_schema_name, analysis_mode."
-    )
+    result: list[str] = []
+    for item in base + extra:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
