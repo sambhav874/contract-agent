@@ -13,6 +13,13 @@ from app.llm.gemini_client import call_gemini
 from app.retrieval.retriever import format_chunks_for_context, get_retriever
 
 
+def _attach_thought_summary(output: BaseAnalysisOutput, response: dict[str, Any]) -> BaseAnalysisOutput:
+    thought_summary = response.get("_thought_summary")
+    if isinstance(thought_summary, str):
+        output._thought_summary = thought_summary.strip()
+    return output
+
+
 class BaseAgent(ABC):
     """
     Base class for all analysis agents.
@@ -168,6 +175,7 @@ class BaseAgent(ABC):
             # Try to validate
             try:
                 output = self.output_schema.model_validate(last_response)
+                _attach_thought_summary(output, last_response)
 
                 # Post-validate citations if enabled
                 if self.REQUIRE_CITATIONS:
@@ -202,7 +210,8 @@ class BaseAgent(ABC):
 
         # Last-chance validate
         try:
-            return self.output_schema.model_validate(last_response)
+            output = self.output_schema.model_validate(last_response)
+            return _attach_thought_summary(output, last_response)
         except ValidationError as e:
             return await self._self_correct(last_response, e, context_chunks)
 
@@ -237,7 +246,8 @@ class BaseAgent(ABC):
                     temperature=0.0,
                     enable_thinking=True,
                 )
-                return self.output_schema.model_validate(corrected)
+                output = self.output_schema.model_validate(corrected)
+                return _attach_thought_summary(output, corrected)
             except ValidationError:
                 if attempt == self.SELF_CORRECT_ATTEMPTS - 1:
                     # Return a safe default rather than crashing the pipeline

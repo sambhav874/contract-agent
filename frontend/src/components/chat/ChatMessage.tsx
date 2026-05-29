@@ -30,6 +30,7 @@ interface Delegation {
   status?: "queued" | "started" | "running" | "completed" | "failed" | string;
   step_id?: string;
   reason?: string;
+  thinking?: string;
   error?: string;
 }
 
@@ -68,10 +69,63 @@ function ThoughtSection({ heading, text }: { heading: string; text: string }) {
         )}
       </button>
       {isOpen && (
-        <div className="px-3 py-2.5 bg-white border-t border-slate-50 text-[11px] text-slate-600 leading-relaxed italic whitespace-pre-wrap">
-          {text}
+        <div className="px-3 py-2.5 bg-white border-t border-slate-50 text-[11px] text-slate-600 leading-relaxed">
+          <MarkdownText text={text} />
         </div>
       )}
+    </div>
+  );
+}
+
+function MarkdownText({ text }: { text: string }) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      rehypePlugins={[rehypeRaw]}
+      components={{
+        p: ({ node, ...props }) => <p className="mb-2 last:mb-0" {...props} />,
+        strong: ({ node, ...props }) => <strong className="font-semibold text-slate-900" {...props} />,
+        em: ({ node, ...props }) => <em className="text-slate-500" {...props} />,
+        ul: ({ node, ...props }) => <ul className="mb-2 list-disc space-y-1 pl-4" {...props} />,
+        ol: ({ node, ...props }) => <ol className="mb-2 list-decimal space-y-1 pl-4" {...props} />,
+        li: ({ node, ...props }) => <li className="pl-1" {...props} />,
+        code: ({ node, ...props }) => (
+          <code className="rounded bg-slate-100 px-1 py-0.5 font-mono text-[10px] text-slate-700" {...props} />
+        ),
+      }}
+    >
+      {text}
+    </ReactMarkdown>
+  );
+}
+
+function ThinkingBlock({
+  text,
+  label = "Thinking",
+  active = false,
+  compact = false,
+}: {
+  text: string;
+  label?: string;
+  active?: boolean;
+  compact?: boolean;
+}) {
+  return (
+    <div className={`rounded-lg border border-violet-100 bg-white shadow-sm ${compact ? "p-2" : "p-3"}`}>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-violet-600">
+          {active ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+          {label}
+        </span>
+        {active && (
+          <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[9px] font-semibold text-violet-600">
+            live
+          </span>
+        )}
+      </div>
+      <div className={`${compact ? "max-h-32" : "max-h-52"} overflow-y-auto pr-1 text-[11px] leading-relaxed text-slate-700`}>
+        <MarkdownText text={text} />
+      </div>
     </div>
   );
 }
@@ -121,6 +175,29 @@ function delegationStatusLabel(status?: string): string {
   return status || "running";
 }
 
+function displayAgentName(item: Delegation): string {
+  const task = `${item.task || ""} ${item.intent || ""}`.toLowerCase();
+  if (task.includes("autonomous") || task.includes("mitigate") || task.includes("recommend") || task.includes("next action")) {
+    return "ActionAgent";
+  }
+  if (task.includes("evidence") || task.includes("source")) return "EvidenceAgent";
+  return item.agent || "Specialist Agent";
+}
+
+function reasoningSummary(displayThought: string, activeDelegation?: Delegation) {
+  if (displayThought.trim()) return displayThought.trim();
+  if (activeDelegation) {
+    return `**Current Focus**\nI am using ${displayAgentName(activeDelegation)} to check: ${activeDelegation.task || "the next contract analysis step"}.`;
+  }
+  return "";
+}
+
+function inProgressThinking(item: Delegation): string {
+  const status = item.status || "";
+  if (!["queued", "started", "running"].includes(status)) return "";
+  return `I am reviewing this work item now:\n\n**${item.task || "Analyze the next contract work item."}**\n\nI am checking the relevant contract clauses, KPI records, breach evidence, and remediation context before returning a conclusion.`;
+}
+
 export function ChatMessage({
   message,
   qaApprovalState,
@@ -130,7 +207,7 @@ export function ChatMessage({
   setActiveArtifact,
 }: ChatMessageProps) {
   const isUser = message.role === "user";
-  const [showAuditTrail, setShowAuditTrail] = useState(false);
+  const [showAuditTrail, setShowAuditTrail] = useState(Boolean(message.isStreaming));
   const rawContent = message.content || "";
   const [visibleContent, setVisibleContent] = useState(rawContent);
   const isTyping =
@@ -187,6 +264,7 @@ export function ChatMessage({
   let displayContent = visibleContent;
   let displayThought = message.thought || "";
   const displayGeminiThought = message.geminiThought || "";
+  const directThinking = displayGeminiThought.trim();
   let displayPlan = message.plan || "";
   const delegations = message.delegations || [];
   const completedDelegations = delegations.filter((item) => item.status === "completed").length;
@@ -194,6 +272,7 @@ export function ChatMessage({
   const activeDelegation = delegations.find((item) =>
     ["queued", "started", "running"].includes(item.status || "")
   );
+  const traceThought = reasoningSummary(displayThought, activeDelegation);
 
   // Extract ALL thoughts
   let thoughtMatch;
@@ -217,11 +296,7 @@ export function ChatMessage({
 
   // Clean up stray markdown artifacts for reasoning
   displayContent = displayContent.replace(/```xml\s*/g, "").replace(/```\s*$/g, "").trim();
-  const latestGeminiThoughtLine = displayGeminiThought
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .at(-1);
+  const shouldShowTrace = showAuditTrail || Boolean(message.isStreaming);
 
   // Parse QA blocks EARLY (before ReactMarkdown renders them as code)
   let parsedQaBlock: any = null;
@@ -257,96 +332,26 @@ export function ChatMessage({
   return (
     <div className="flex justify-start">
       <div className="w-full max-w-[100%] overflow-hidden break-words rounded-2xl p-4 text-xs leading-relaxed shadow-md bg-white border border-gray-100 text-gray-700 prose prose-sm max-w-none prose-p:leading-relaxed prose-p:m-0 prose-ul:m-0 prose-li:m-0 prose-strong:text-gray-800 prose-ul:pl-4">
-        {delegations.length > 0 && (
-          <div className="mb-3 rounded-xl border border-blue-100 bg-blue-50/70 p-3 not-prose">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-blue-700">
-                  {activeDelegation ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : allDelegationsCompleted ? (
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                  ) : (
-                    <Bot className="h-3.5 w-3.5" />
-                  )}
-                  Agent Delegation
-                </div>
-                <p className="mt-1 text-[12px] font-semibold text-slate-800">
-                  {delegations.length === 1
-                    ? `Delegated to ${delegations[0].agent || "specialist agent"}`
-                    : `${delegations.length} specialist handoffs`}
-                </p>
-              </div>
-              <span className="shrink-0 rounded-full border border-blue-200 bg-white px-2 py-1 text-[10px] font-bold text-blue-700">
-                {completedDelegations}/{delegations.length} done
-              </span>
-            </div>
-            <div className="mt-2 space-y-1.5">
-              {delegations.slice(0, 3).map((item, idx) => (
-                <div
-                  key={item.key || `${item.agent}-${item.step_id}-${idx}`}
-                  className="flex items-center justify-between gap-2 rounded-lg border border-white/70 bg-white/75 px-2.5 py-2"
-                >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <Bot className="h-3.5 w-3.5 shrink-0 text-blue-500" />
-                      <span className="truncate text-[11px] font-bold text-slate-800">
-                        {item.agent || "Specialist Agent"}
-                      </span>
-                      {item.intent && (
-                        <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-500">
-                          {item.intent}
-                        </span>
-                      )}
-                    </div>
-                    {item.task && (
-                      <p className="mt-0.5 truncate text-[10px] text-slate-500">{item.task}</p>
-                    )}
-                  </div>
-                  <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase ${delegationStatusClasses(item.status)}`}>
-                    {delegationStatusLabel(item.status)}
-                  </span>
-                </div>
-              ))}
-              {delegations.length > 3 && (
-                <p className="text-[10px] font-medium text-blue-600">
-                  +{delegations.length - 3} more handoff{delegations.length - 3 === 1 ? "" : "s"} in audit trail
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {message.isStreaming && latestGeminiThoughtLine && (
-          <div className="mb-3 rounded-xl border border-amber-100 bg-amber-50/70 p-3 not-prose">
-            <div className="flex items-start gap-2.5">
-              <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin text-amber-600" />
-              <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-amber-700">
-                  Gemini Thinking
-                </p>
-                <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-amber-900/80">
-                  {latestGeminiThoughtLine}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Agent Reasoning Blocks */}
-        {(displayThought || displayPlan || delegations.length > 0 || (message.toolCalls && message.toolCalls.length > 0)) && (
-          <div className="mb-3 rounded-lg border border-slate-100 bg-slate-50/70">
+        {/* Contract Guardian reasoning trace */}
+        {(directThinking || traceThought || displayPlan || delegations.length > 0 || (message.toolCalls && message.toolCalls.length > 0)) && (
+          <div className="mb-3 overflow-hidden rounded-xl border border-blue-100 bg-blue-50/60 not-prose">
             <button
               type="button"
               onClick={() => setShowAuditTrail((current) => !current)}
               className="flex w-full items-center justify-between px-3 py-2 text-left"
             >
-              <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                <Database className="h-3 w-3 text-blue-500" />
-                Evidence & Agent Audit Trail
+              <span className="flex min-w-0 items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-blue-700">
+                {activeDelegation ? (
+                  <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+                ) : allDelegationsCompleted ? (
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                ) : (
+                  <Database className="h-3.5 w-3.5 shrink-0" />
+                )}
+                Guardian Thinking
               </span>
-              <span className="flex items-center gap-2 text-[10px] font-semibold text-slate-400">
-                {(message.toolCalls?.length || 0) + delegations.length} ops
+              <span className="flex shrink-0 items-center gap-2 text-[10px] font-semibold text-blue-600">
+                {delegations.length > 0 ? `${completedDelegations}/${delegations.length} agents` : `${message.toolCalls?.length || 0} ops`}
                 {showAuditTrail ? (
                   <ChevronDown className="h-3.5 w-3.5" />
                 ) : (
@@ -355,23 +360,31 @@ export function ChatMessage({
               </span>
             </button>
 
-            {showAuditTrail && (
-              <div className="space-y-4 border-t border-slate-100 p-4">
+            {shouldShowTrace && (
+              <div className="space-y-4 border-t border-blue-100 p-4">
+              {directThinking && (
+              <div className="text-xs text-slate-700 leading-relaxed">
+                <ThinkingBlock text={directThinking} active={Boolean(message.isStreaming)} />
+              </div>
+              )}
+
               {delegations.length > 0 && (
               <div className="text-xs text-slate-600 leading-relaxed">
                 <div className="flex items-center gap-1.5 mb-2.5">
                   <Bot className="h-3.5 w-3.5 text-blue-500" />
-                  <span className="font-bold uppercase tracking-widest text-slate-400 text-[10px]">
-                    Agent Handoffs
+                  <span className="font-bold uppercase tracking-widest text-blue-500 text-[10px]">
+                    Specialist Agent Work
                   </span>
                 </div>
                 <div className="space-y-2">
-                  {delegations.map((item, idx) => (
-                    <div key={item.key || `${item.agent}-${item.step_id}-${idx}`} className="rounded-lg border border-slate-100 bg-white p-3">
+                  {delegations.map((item, idx) => {
+                    const liveThinking = inProgressThinking(item);
+                    return (
+                    <div key={item.key || `${item.agent}-${item.step_id}-${idx}`} className="rounded-lg border border-slate-100 bg-white p-3 shadow-sm">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="text-[11px] font-bold text-slate-800">
-                            {item.agent || "Specialist Agent"}
+                            {displayAgentName(item)}
                           </p>
                           <p className="mt-0.5 text-[10px] text-slate-500">
                             {item.intent || "GENERAL_QUERY"}{item.step_id ? ` - Step ${item.step_id}` : ""}
@@ -387,25 +400,35 @@ export function ChatMessage({
                       {item.reason && (
                         <p className="mt-1 text-[10px] italic text-slate-400">{item.reason}</p>
                       )}
+                      {item.thinking && (
+                        <div className="mt-2">
+                          <ThinkingBlock text={item.thinking} compact />
+                        </div>
+                      )}
+                      {!item.thinking && liveThinking && (
+                        <div className="mt-2">
+                          <ThinkingBlock text={liveThinking} active compact />
+                        </div>
+                      )}
                       {item.error && (
                         <p className="mt-1 text-[10px] font-semibold text-red-600">{item.error}</p>
                       )}
                     </div>
-                  ))}
+                  );})}
                 </div>
               </div>
               )}
 
-              {displayThought && (
+              {traceThought && (
               <div className="text-xs text-slate-600 leading-relaxed">
                 <div className="flex items-center gap-1.5 mb-2.5">
                   <Bot className="h-3.5 w-3.5 text-blue-500" />
-                  <span className="font-bold uppercase tracking-widest text-slate-400 text-[10px]">
-                    Agent Reasoning
+                  <span className="font-bold uppercase tracking-widest text-blue-500 text-[10px]">
+                    Work Notes
                   </span>
                 </div>
                 {(() => {
-                  const sections = parseThoughtBlocks(displayThought);
+                  const sections = parseThoughtBlocks(traceThought);
                   if (sections.length > 0) {
                     return (
                       <div className="flex flex-col gap-1.5">
@@ -416,9 +439,9 @@ export function ChatMessage({
                     );
                   }
                   return (
-                    <span className="italic whitespace-pre-wrap text-[11px] opacity-90">
-                      {displayThought}
-                    </span>
+                    <div className="rounded-lg border border-blue-100 bg-white px-3 py-2.5 text-[11px] shadow-sm">
+                      <MarkdownText text={traceThought} />
+                    </div>
                   );
                 })()}
               </div>

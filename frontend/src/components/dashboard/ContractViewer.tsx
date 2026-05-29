@@ -136,11 +136,14 @@ export default function ContractViewer({ text, highlightText, highlightTexts, ac
     let markdown = "";
     let lastIndex = 0;
 
+    const activeRangeIndex = mergedRanges.findIndex((range) => range.active);
+    const citationIndex = activeRangeIndex >= 0 ? activeRangeIndex : 0;
+
     mergedRanges.forEach((range, idx) => {
       if (range.start > lastIndex) {
         markdown += displayText.substring(lastIndex, range.start);
       }
-      const attrs = `${idx === 0 ? ' id="highlighted-citation"' : ""}${range.active ? ' class="active-source"' : ""}`;
+      const attrs = `${idx === citationIndex ? ' id="highlighted-citation"' : ""}${range.active ? ' class="active-source"' : ""}`;
       markdown += `<mark${attrs}>${displayText.substring(range.start, range.end)}</mark>`;
       lastIndex = range.end;
     });

@@ -580,8 +580,12 @@ CORE RULES:
 8. EVIDENCE SCORE — For substantive prose answers, end with a short "Evidence Assessment" section
                     containing "Justification" and "Confidence score" on a 0.0-1.0 scale.
 
-When reasoning step-by-step, wrap thoughts in <thought>…</thought> tags (plain text, not code blocks).
-When laying out a plan, wrap it in <plan>…</plan> tags.
+Do not expose private chain-of-thought. For visible auditability, provide concise
+first-person working thoughts in <thought>…</thought> tags, written as business-facing
+notes about what you are checking, why it matters, what evidence you need, and what
+decision you are moving toward. Do not mention internal model, prompt, routing, or
+architecture terms.
+When laying out an execution plan, wrap the public plan in <plan>…</plan> tags.
 """
 
 _SUFFIX_CONVERSATIONAL = """\
@@ -836,6 +840,7 @@ def _delegation_event(
     status: str,
     step_id: str = "main",
     reason: str | None = None,
+    thinking: str | None = None,
     error: str | None = None,
 ) -> dict[str, Any]:
     """Public SSE payload for agent handoffs."""
@@ -849,9 +854,16 @@ def _delegation_event(
     }
     if reason:
         payload["reason"] = reason
+    if thinking:
+        payload["thinking"] = thinking
     if error:
         payload["error"] = error
     return payload
+
+
+def _specialist_thinking(result_obj: Any) -> str:
+    thought = getattr(result_obj, "_thought_summary", "")
+    return thought.strip() if isinstance(thought, str) else ""
 
 
 # ── Chat Agent ────────────────────────────────────────────────────────────────
@@ -1158,17 +1170,20 @@ class ChatAgent:
             if agent_class:
                 agent = agent_class()
                 res_obj = await agent.analyze(sub_query_plan, self.contract_id, description)
+                thought_summary = _specialist_thinking(res_obj)
                 res_text = res_obj.model_dump_json() if hasattr(res_obj, "model_dump_json") else str(res_obj)
             else:
                 # Use ChatAgent's single-turn answer for general subtasks
                 agent = ChatAgent(self.contract_id)
                 res_dict = await agent.answer_question(description)
+                thought_summary = ""
                 res_text = res_dict.get("answer", str(res_dict))
 
             return {
                 "step_id": step_id,
                 "description": description,
                 "result": res_text,
+                "thinking": thought_summary,
                 "status": "completed",
                 "agent": delegation.get("agent", "ChatAgent"),
                 "intent": sub_intent,
@@ -1178,6 +1193,7 @@ class ChatAgent:
                     task=description,
                     status="completed",
                     step_id=step_id,
+                    thinking=thought_summary,
                 ),
             }
 
@@ -1322,6 +1338,8 @@ class ChatAgent:
             }
             for delegation in public_delegations:
                 yield delegation
+            for delegation in public_delegations:
+                yield {**delegation, "status": "running"}
             results = await self._dispatch_compound_plan(plan_steps, contract_ctx, question, delegations)
             for result in results.values():
                 delegation = result.get("delegation") if isinstance(result, dict) else None
@@ -1348,6 +1366,7 @@ class ChatAgent:
 
             try:
                 result_obj = await agent.analyze(query_plan, self.contract_id, question)
+                thought_summary = _specialist_thinking(result_obj)
             except Exception as exc:
                 yield _delegation_event(
                     agent=agent_class.__name__,
@@ -1364,6 +1383,7 @@ class ChatAgent:
                 task=question,
                 status="completed",
                 reason="Specialized deep analysis",
+                thinking=thought_summary,
             )
 
             synthesis = await self._synthesize_specialist_result(agent_class.__name__, result_obj, question)

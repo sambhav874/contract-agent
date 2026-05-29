@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, PrivateAttr, field_validator
 
 
 # ── MongoDB document models ───────────────────────────────────────────
@@ -73,6 +73,7 @@ class BaseAnalysisOutput(BaseModel):
     """Base class for all analysis outputs."""
     needs_more_context: bool = False
     additional_tags_needed: list[str] = Field(default_factory=list)
+    _thought_summary: str = PrivateAttr(default="")
 
 
 class KeyDate(BaseModel):

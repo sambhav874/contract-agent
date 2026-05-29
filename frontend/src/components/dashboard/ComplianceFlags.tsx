@@ -10,6 +10,7 @@ import {
   Bell,
   Bot,
   MailWarning,
+  Trash2,
 } from "lucide-react";
 import { SEV_CONFIG, STATUS_CONFIG } from "@/lib/utils";
 
@@ -21,6 +22,7 @@ interface ComplianceFlagsProps {
   handleUpdateNotes: (breachId: string, newNotes: string) => void;
   handleChat: (query: string, breachId?: string) => void;
   handleOpenEmailModal: (breachId: string) => void;
+  handleRemoveFlag: (breachId: string) => void;
 }
 
 export default function ComplianceFlags({
@@ -31,6 +33,7 @@ export default function ComplianceFlags({
   handleUpdateNotes,
   handleChat,
   handleOpenEmailModal,
+  handleRemoveFlag,
 }: ComplianceFlagsProps) {
   return (
     <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
@@ -222,7 +225,7 @@ export default function ComplianceFlags({
                         </p>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2 mt-2">
+                      <div className="grid grid-cols-3 gap-2 mt-2">
                         <button
                           onClick={() =>
                             handleChat(
@@ -234,6 +237,13 @@ export default function ComplianceFlags({
                         >
                           <Bot className="h-3.5 w-3.5" />
                           Ask AI to Analyze
+                        </button>
+                        <button
+                          onClick={() => handleRemoveFlag(flag.breach_id || flag._id)}
+                          className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-[11px] font-bold transition-all shadow-sm active:scale-[0.98]"
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-gray-500" />
+                          Remove Flag
                         </button>
                         <button
                           onClick={() => handleOpenEmailModal(flag.breach_id || flag._id)}

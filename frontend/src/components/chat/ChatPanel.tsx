@@ -13,6 +13,7 @@ interface Delegation {
   status?: string;
   step_id?: string;
   reason?: string;
+  thinking?: string;
   error?: string;
 }
 
@@ -128,8 +129,8 @@ export function ChatPanel({ contractId, onClose }: ChatPanelProps) {
           try {
             const data = JSON.parse(trimmed.replace("data: ", "")) as StreamEvent;
             if (data.type === "thought") {
-              thought += data.content || "";
               if (data.source === "gemini_thinking") geminiThought += data.content || "";
+              else thought += data.content || "";
             }
             else if (data.type === "plan") plan += data.content || "";
             else if (data.type === "content") content += data.content || "";

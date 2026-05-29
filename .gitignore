@@ -26,6 +26,7 @@ data/processed/
 data/tessdata/
 
 # IDEs
+.DS_Store
 .vscode/
 .idea/
 .claude/

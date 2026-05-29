@@ -9,11 +9,15 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
   AreaChart,
   Area,
+  Legend,
+  ReferenceLine,
 } from "recharts";
 import {
   TYPE_COLORS,
@@ -24,6 +28,7 @@ import {
 
 interface PerformanceCockpitProps {
   kpis: any[];
+  actuals: any[];
   breaches: any[];
   activeBreaches: any[];
   sevCounts: { CRITICAL: number; HIGH: number; MEDIUM: number; LOW: number };
@@ -36,8 +41,93 @@ interface PerformanceCockpitProps {
   severityStatusMatrix: any;
 }
 
+const TREND_COLORS = ["#2563eb", "#16a34a", "#f59e0b", "#ef4444", "#7c3aed"];
+
+function asNumber(value: unknown) {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : null;
+}
+
+function kpiThreshold(kpi: any) {
+  const min = asNumber(kpi?.value_min ?? kpi?.threshold_value ?? kpi?.value);
+  const max = asNumber(kpi?.value_max);
+  return { min, max };
+}
+
+function shortKpiLabel(kpi: any, fallback: string) {
+  return String(kpi?.name || fallback || "KPI")
+    .replace(/^KPI-\d+:\s*/i, "")
+    .replace(/\s+Target$/i, "")
+    .replace(/\s+Performance$/i, "")
+    .substring(0, 24);
+}
+
+function actualTimestamp(actual: any) {
+  return actual?.timestamp || actual?.scheduled_departure || actual?.audit_date || actual?.date || actual?.month;
+}
+
+function monthBucket(timestamp: string) {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return null;
+  const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  const label = date.toLocaleDateString(undefined, { month: "short", year: "2-digit" });
+  return { key, label };
+}
+
+function isActualBreach(kpi: any, value: number) {
+  const { min, max } = kpiThreshold(kpi);
+  if (min == null && max == null) return false;
+
+  switch (kpi?.operator) {
+    case ">=":
+      return min != null ? value < min : false;
+    case ">":
+      return min != null ? value <= min : false;
+    case "<=":
+      return min != null ? value > min : false;
+    case "<":
+      return min != null ? value >= min : false;
+    case "between":
+      return (min != null && value < min) || (max != null && value > max);
+    case "==":
+    default:
+      if (min == null) return false;
+      return Math.abs(value - min) > 0.01;
+  }
+}
+
+function targetAttainment(kpi: any, value: number) {
+  const { min, max } = kpiThreshold(kpi);
+  if (min == null && max == null) return null;
+
+  let attainment: number | null = null;
+  switch (kpi?.operator) {
+    case ">=":
+    case ">":
+      attainment = min && min !== 0 ? (value / min) * 100 : null;
+      break;
+    case "<=":
+    case "<":
+      attainment = value !== 0 && min != null ? (min / value) * 100 : null;
+      break;
+    case "between":
+      if (min != null && value < min && min !== 0) attainment = (value / min) * 100;
+      else if (max != null && value > max && value !== 0) attainment = (max / value) * 100;
+      else attainment = 100;
+      break;
+    case "==":
+    default:
+      if (min == null) return null;
+      attainment = 100 - (Math.abs(value - min) / Math.max(Math.abs(min), 1)) * 100;
+  }
+
+  if (attainment == null || !Number.isFinite(attainment)) return null;
+  return Math.max(60, Math.min(120, attainment));
+}
+
 export default function PerformanceCockpit({
   kpis,
+  actuals,
   breaches,
   activeBreaches,
   sevCounts,
@@ -50,47 +140,173 @@ export default function PerformanceCockpit({
   severityStatusMatrix,
 }: PerformanceCockpitProps) {
   const openBreaches = activeBreaches.filter((b) => b.status !== "Resolved" && b.status !== "Waived");
-  const highestExposure = [...flags]
-    .filter((f) => f.is_breach)
-    .sort((a, b) => (b.penalty_amount || 0) - (a.penalty_amount || 0))[0];
   const nextAction = openBreaches[0];
   const nextActionKpi = kpis.find((k) => k.kpi_id === nextAction?.kpi_id);
-  const totalExposure = flags.reduce((sum, f) => sum + (f.penalty_amount || 0), 0);
+  const kpisById = React.useMemo(() => new Map(kpis.map((kpi) => [kpi.kpi_id, kpi])), [kpis]);
+
+  const thresholdComparisonData = React.useMemo(() => {
+    const latestByKpi = new Map<string, any>();
+    [...actuals]
+      .filter((actual) => actual?.kpi_id && asNumber(actual.value) != null && actualTimestamp(actual))
+      .sort((a, b) => new Date(actualTimestamp(a)).getTime() - new Date(actualTimestamp(b)).getTime())
+      .forEach((actual) => latestByKpi.set(actual.kpi_id, actual));
+
+    const preferred = ["KPI-001", "KPI-002", "KPI-003", "KPI-005", "KPI-006", "KPI-012", "KPI-015-A"];
+    const rows = preferred
+      .map((id) => {
+        const actual = latestByKpi.get(id);
+        const kpi = kpisById.get(id);
+        const actualValue = asNumber(actual?.value);
+        const { min } = kpiThreshold(kpi);
+        if (!actual || !kpi || actualValue == null || min == null) return null;
+        return {
+          name: shortKpiLabel(kpi, id),
+          actual: Number(actualValue.toFixed(2)),
+          threshold: Number(min.toFixed(2)),
+          breach: isActualBreach(kpi, actualValue),
+          unit: actual.unit || kpi.unit || "",
+        };
+      })
+      .filter(Boolean) as Array<{ name: string; actual: number; threshold: number; breach: boolean; unit: string }>;
+
+    if (rows.length) return rows;
+
+    return actualVsThreshold.slice(0, 7).map((row) => ({
+      name: row.name,
+      actual: Number(row.actual || 0),
+      threshold: Number(row.threshold || 0),
+      breach: row.isBreach,
+      unit: row.unit || "",
+    }));
+  }, [actuals, actualVsThreshold, kpisById]);
+
+  const oneYearTrendData = React.useMemo(() => {
+    const trackedIds = ["KPI-001", "KPI-003", "KPI-006", "KPI-012", "KPI-015-A"];
+    const labels = new Map<string, string>();
+    const buckets = new Map<string, { period: string; values: Record<string, { sum: number; count: number }> }>();
+
+    actuals.forEach((actual) => {
+      if (!trackedIds.includes(actual?.kpi_id)) return;
+      const value = asNumber(actual.value);
+      const timestamp = actualTimestamp(actual);
+      if (value == null || !timestamp) return;
+      const kpi = kpisById.get(actual.kpi_id);
+      const attainment = kpi ? targetAttainment(kpi, value) : null;
+      if (attainment == null) return;
+      const bucket = monthBucket(timestamp);
+      if (!bucket) return;
+      labels.set(actual.kpi_id, shortKpiLabel(kpisById.get(actual.kpi_id), actual.kpi_id));
+      const month = buckets.get(bucket.key) || { period: bucket.label, values: {} };
+      const metric = month.values[actual.kpi_id] || { sum: 0, count: 0 };
+      month.values[actual.kpi_id] = { sum: metric.sum + attainment, count: metric.count + 1 };
+      buckets.set(bucket.key, month);
+    });
+
+    const rows = [...buckets.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-12)
+      .map(([, bucket]) => {
+        const row: Record<string, string | number> = { period: bucket.period };
+        trackedIds.forEach((id) => {
+          const label = labels.get(id);
+          const metric = bucket.values[id];
+          if (label && metric?.count) row[label] = Number((metric.sum / metric.count).toFixed(2));
+        });
+        return row;
+      });
+
+    const trendLabels = trackedIds.map((id) => labels.get(id)).filter(Boolean) as string[];
+    const values = rows.flatMap((row) => trendLabels.map((label) => asNumber(row[label])).filter((value) => value != null) as number[]);
+    const minValue = values.length ? Math.min(...values, 100) : 90;
+    const maxValue = values.length ? Math.max(...values, 100) : 105;
+    const domain: [number, number] = [
+      Math.max(60, Math.floor(minValue - 4)),
+      Math.min(120, Math.ceil(maxValue + 4)),
+    ];
+
+    return { rows, labels: trendLabels, domain };
+  }, [actuals, kpisById]);
+
+  const monthlyBreachTrend = React.useMemo(() => {
+    const buckets = new Map<string, { period: string; flagged: number; onTrack: number }>();
+
+    actuals.forEach((actual) => {
+      const value = asNumber(actual?.value);
+      const timestamp = actualTimestamp(actual);
+      const kpi = kpisById.get(actual?.kpi_id);
+      if (value == null || !timestamp || !kpi) return;
+      const bucket = monthBucket(timestamp);
+      if (!bucket) return;
+      const month = buckets.get(bucket.key) || { period: bucket.label, flagged: 0, onTrack: 0 };
+      if (isActualBreach(kpi, value)) month.flagged += 1;
+      else month.onTrack += 1;
+      buckets.set(bucket.key, month);
+    });
+
+    return [...buckets.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-12)
+      .map(([, value]) => value);
+  }, [actuals, kpisById]);
+
+  const exposureTrendData = React.useMemo(() => {
+    const buckets = new Map<string, { period: string; exposureByKpi: Map<string, number> }>();
+
+    actuals.forEach((actual) => {
+      const value = asNumber(actual?.value);
+      const timestamp = actualTimestamp(actual);
+      const kpi = kpisById.get(actual?.kpi_id);
+      if (value == null || !timestamp || !kpi || !isActualBreach(kpi, value)) return;
+      const bucket = monthBucket(timestamp);
+      if (!bucket) return;
+      const month = buckets.get(bucket.key) || { period: bucket.label, exposureByKpi: new Map<string, number>() };
+      const exposure = asNumber(kpi.consequence_value) || 0;
+      if (exposure > 0) {
+        month.exposureByKpi.set(actual.kpi_id, Math.max(month.exposureByKpi.get(actual.kpi_id) || 0, exposure));
+      }
+      buckets.set(bucket.key, month);
+    });
+
+    let cumulative = 0;
+    const derived = [...buckets.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-12)
+      .map(([, month]) => {
+        const exposure = [...month.exposureByKpi.values()].reduce((sum, amount) => sum + amount, 0);
+        cumulative += exposure;
+        return { date: month.period, exposure, cumulative };
+      });
+
+    return derived.length > 1 ? derived : penaltyAccrualData;
+  }, [actuals, kpisById, penaltyAccrualData]);
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm md:grid-cols-4">
-        <div className="border-b border-slate-100 pb-3 md:border-b-0 md:border-r md:pb-0 md:pr-3">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Exposure at Risk</p>
-          <p className="mt-1 text-2xl font-bold tracking-normal text-red-600">${totalExposure.toLocaleString()}</p>
-          <p className="mt-1 truncate text-[11px] text-slate-500">
-            {highestExposure ? `${highestExposure.kpi_id} is the largest driver` : "No financial exposure recorded"}
-          </p>
-        </div>
-        <div className="border-b border-slate-100 pb-3 md:border-b-0 md:border-r md:pb-0 md:pr-3">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Open Critical / High</p>
-          <p className="mt-1 text-2xl font-bold tracking-normal text-slate-900">
-            {sevCounts.CRITICAL + sevCounts.HIGH}
-          </p>
-          <p className="mt-1 text-[11px] text-slate-500">
-            {sevCounts.CRITICAL} critical · {sevCounts.HIGH} high
-          </p>
-        </div>
-        <div className="border-b border-slate-100 pb-3 md:border-b-0 md:border-r md:pb-0 md:pr-3">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Remediation Queue</p>
-          <p className="mt-1 text-2xl font-bold tracking-normal text-amber-700">{openBreaches.length}</p>
-          <p className="mt-1 truncate text-[11px] text-slate-500">
-            {nextActionKpi?.party ? `${nextActionKpi.party} owns next action` : "No owner assigned"}
-          </p>
-        </div>
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Next Best Action</p>
-          <p className="mt-1 truncate text-sm font-bold text-slate-900">
-            {nextAction ? nextActionKpi?.name || nextAction.kpi_id : "No open breach"}
-          </p>
-          <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-slate-500">
-            {nextAction?.remediation || nextActionKpi?.remediation || "Monitoring is currently clear."}
-          </p>
+      <div className="rounded-lg border border-blue-100 bg-white px-4 py-3 shadow-sm">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-blue-600">Next Best Action</p>
+            <p className="mt-1 truncate text-sm font-bold text-slate-900">
+              {nextAction ? nextActionKpi?.name || nextAction.kpi_id : "No open breach"}
+            </p>
+            <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-slate-500">
+              {nextAction?.remediation || nextActionKpi?.remediation || "Monitoring is currently clear."}
+            </p>
+          </div>
+          {nextAction && (
+            <div className="flex shrink-0 flex-wrap gap-2">
+              {nextActionKpi?.party && (
+                <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[10px] font-semibold text-blue-700">
+                  Owner: {nextActionKpi.party}
+                </span>
+              )}
+              {(nextAction.sla || nextActionKpi?.remediation_sla) && (
+                <span className="rounded-full border border-amber-100 bg-amber-50 px-3 py-1 text-[10px] font-semibold text-amber-700">
+                  SLA: {nextAction.sla || nextActionKpi?.remediation_sla}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -204,7 +420,7 @@ export default function PerformanceCockpit({
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
           <div className="px-5 py-3 border-b border-gray-100">
             <h3 className="text-sm font-semibold text-gray-800">Penalty Exposure by Party</h3>
-            <p className="text-[10px] text-gray-400 mt-0.5">Contractual consequence by responsible party</p>
+            <p className="text-[10px] text-gray-400 mt-0.5">Current open exposure by responsible party</p>
           </div>
           <div className="px-4 py-3 h-[200px] flex flex-col items-center">
             {penaltyByParty.length > 0 ? (
@@ -238,26 +454,81 @@ export default function PerformanceCockpit({
         </div>
       </div>
 
+      {oneYearTrendData.rows.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+          <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-800">One-Year KPI Target Attainment</h3>
+              <p className="text-[10px] text-gray-400 mt-0.5">Monthly actuals normalized against contract targets. 100% is the required level.</p>
+            </div>
+            <span className="rounded-full border border-blue-100 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-[#0084C7]">
+              {actuals.length.toLocaleString()} actuals
+            </span>
+          </div>
+          <div className="px-3 py-3 h-[280px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={oneYearTrendData.rows} margin={{ left: -8, right: 18, top: 34, bottom: 4 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
+                <XAxis dataKey="period" axisLine={false} tickLine={false} fontSize={10} tick={{ fill: "#94a3b8" }} />
+                <YAxis
+                  domain={oneYearTrendData.domain}
+                  axisLine={false}
+                  tickLine={false}
+                  fontSize={10}
+                  tick={{ fill: "#94a3b8" }}
+                  tickFormatter={(v: number) => `${v}%`}
+                />
+                <ReferenceLine
+                  y={100}
+                  stroke="#0f172a"
+                  strokeDasharray="4 4"
+                  strokeOpacity={0.45}
+                  label={{ value: "Target", position: "insideTopRight", fill: "#64748b", fontSize: 10 }}
+                />
+                <Tooltip
+                  formatter={(value: any) => [`${Number(value).toFixed(1)}%`, "Target attainment"]}
+                  contentStyle={{ borderRadius: "8px", border: "1px solid #e2e8f0", fontSize: "11px", padding: "8px" }}
+                />
+                <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: 11, paddingBottom: 8 }} />
+                {oneYearTrendData.labels.map((label, index) => (
+                  <Line
+                    key={label}
+                    type="monotone"
+                    dataKey={label}
+                    stroke={TREND_COLORS[index % TREND_COLORS.length]}
+                    strokeWidth={2.5}
+                    dot={false}
+                    activeDot={{ r: 4 }}
+                    connectNulls
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
       {/* ── Row 2: Financial & Operational ──────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* 4. Actual vs Threshold Deviation */}
+        {/* 4. Actual vs Threshold */}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
           <div className="px-5 py-3 border-b border-gray-100">
             <h3 className="text-sm font-semibold text-gray-800">Actual vs Threshold</h3>
-            <p className="text-[10px] text-gray-400 mt-0.5">% deviation from target (negative = breach)</p>
+            <p className="text-[10px] text-gray-400 mt-0.5">Latest actuals compared with contracted targets</p>
           </div>
           <div className="px-2 py-3 h-[200px]">
-            {actualVsThreshold.length > 0 ? (
+            {thresholdComparisonData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={actualVsThreshold} layout="vertical" margin={{ left: 5, right: 20, top: 5, bottom: 5 }}>
+                <BarChart data={thresholdComparisonData} layout="vertical" margin={{ left: 5, right: 20, top: 5, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                   <XAxis
                     type="number"
+                    domain={[0, 110]}
                     axisLine={false}
                     tickLine={false}
                     fontSize={9}
                     tick={{ fill: "#94a3b8" }}
-                    tickFormatter={(v: number) => `${v > 0 ? "+" : ""}${v}%`}
+                    tickFormatter={(v: number) => `${v}%`}
                   />
                   <YAxis
                     type="category"
@@ -268,26 +539,20 @@ export default function PerformanceCockpit({
                     tick={{ fill: "#64748b" }}
                     width={100}
                   />
+                  <Legend wrapperStyle={{ fontSize: 10 }} />
                   <Tooltip
-                    formatter={(value: any) => [`${value > 0 ? "+" : ""}${value}%`, "Deviation"]}
+                    formatter={(value: any, name: any, item: any) => [
+                      `${Number(value).toLocaleString()}${item?.payload?.unit ? ` ${item.payload.unit}` : ""}`,
+                      name === "actual" ? "Actual" : "Target",
+                    ]}
                     contentStyle={{ borderRadius: "8px", border: "1px solid #e2e8f0", fontSize: "11px", padding: "8px" }}
                   />
-                  <Bar dataKey="deviation" radius={[0, 4, 4, 0]} barSize={12}>
-                    {actualVsThreshold.map((entry, i) => (
-                      <Cell
-                        key={i}
-                        fill={
-                          entry.isBreach
-                            ? entry.severity === "CRITICAL"
-                              ? "#ef4444"
-                              : entry.severity === "HIGH"
-                              ? "#f97316"
-                              : "#f59e0b"
-                            : "#22c55e"
-                        }
-                      />
+                  <Bar dataKey="actual" name="Actual" fill="#f97316" radius={[0, 4, 4, 0]} barSize={8}>
+                    {thresholdComparisonData.map((entry, i) => (
+                      <Cell key={i} fill={entry.breach ? "#f97316" : "#22c55e"} />
                     ))}
                   </Bar>
+                  <Bar dataKey="threshold" name="Target" fill="#cbd5e1" radius={[0, 4, 4, 0]} barSize={8} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -302,7 +567,7 @@ export default function PerformanceCockpit({
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
           <div className="px-5 py-3 border-b border-gray-100">
             <h3 className="text-sm font-semibold text-gray-800">Penalty Impact by KPI</h3>
-            <p className="text-[10px] text-gray-400 mt-0.5">Financial exposure by KPI ($)</p>
+            <p className="text-[10px] text-gray-400 mt-0.5">Current open exposure by KPI ($)</p>
           </div>
           <div className="px-2 py-3 h-[200px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -353,50 +618,30 @@ export default function PerformanceCockpit({
           </div>
         </div>
 
-        {/* 6. Breach Status Pipeline */}
+        {/* 6. Breach Trend */}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
           <div className="px-5 py-3 border-b border-gray-100">
-            <h3 className="text-sm font-semibold text-gray-800">Breach Lifecycle</h3>
-            <p className="text-[10px] text-gray-400 mt-0.5">Remediation pipeline status</p>
+            <h3 className="text-sm font-semibold text-gray-800">Breach Trend</h3>
+            <p className="text-[10px] text-gray-400 mt-0.5">Monthly flagged KPI signals from actuals</p>
           </div>
-          <div className="px-4 py-3 h-[200px] flex flex-col justify-center">
-            {activeBreaches.length > 0 ? (
-              <>
-                <ResponsiveContainer width="100%" height={50}>
-                  <BarChart
-                    data={[breachStatusCounts.reduce((acc, s) => ({ ...acc, [s.name]: s.value }), {} as any)]}
-                    layout="horizontal"
-                    margin={{ left: 0, right: 0, top: 0, bottom: 0 }}
-                  >
-                    <XAxis type="number" hide domain={[0, activeBreaches.length || 1]} />
-                    <YAxis type="category" hide dataKey={() => "status"} />
-                    {breachStatusCounts.map((s) => (
-                      <Bar
-                        key={s.name}
-                        dataKey={s.name}
-                        stackId="status"
-                        fill={STATUS_BAR_COLORS[s.name] || "#94a3b8"}
-                        barSize={28}
-                        radius={0}
-                      />
-                    ))}
-                    <Tooltip contentStyle={{ borderRadius: "8px", border: "1px solid #e2e8f0", fontSize: "11px", padding: "8px" }} />
-                  </BarChart>
-                </ResponsiveContainer>
-                <div className="grid grid-cols-2 gap-3 mt-4">
-                  {breachStatusCounts.map((s) => (
-                    <div key={s.name} className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded" style={{ backgroundColor: STATUS_BAR_COLORS[s.name] || "#94a3b8" }} />
-                      <div>
-                        <span className="text-xs font-semibold text-gray-700">{s.value}</span>
-                        <span className="text-[10px] text-gray-400 ml-1">{s.name}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </>
+          <div className="px-2 py-3 h-[200px]">
+            {monthlyBreachTrend.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={monthlyBreachTrend} margin={{ left: -8, right: 12, top: 8, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="period" axisLine={false} tickLine={false} fontSize={9} tick={{ fill: "#94a3b8" }} />
+                  <YAxis axisLine={false} tickLine={false} fontSize={9} tick={{ fill: "#94a3b8" }} />
+                  <Tooltip
+                    contentStyle={{ borderRadius: "8px", border: "1px solid #e2e8f0", fontSize: "11px", padding: "8px" }}
+                    formatter={(value: any, name: any) => [value, name === "flagged" ? "Flagged" : "On Track"]}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 10 }} />
+                  <Bar dataKey="flagged" name="Flagged" stackId="a" fill="#f97316" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="onTrack" name="On Track" stackId="a" fill="#22c55e" radius={[3, 3, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-full text-xs text-gray-400">No active breaches</div>
+              <div className="flex items-center justify-center h-full text-xs text-gray-400">No actuals loaded</div>
             )}
           </div>
         </div>
@@ -408,20 +653,20 @@ export default function PerformanceCockpit({
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
           <div className="px-5 py-3 border-b border-gray-100 flex justify-between items-center">
             <div>
-              <h3 className="text-sm font-semibold text-gray-800">Penalty Accrual</h3>
-              <p className="text-[10px] text-gray-400 mt-0.5">Cumulative financial exposure</p>
+              <h3 className="text-sm font-semibold text-gray-800">Rolling 12-Month Exposure Projection</h3>
+              <p className="text-[10px] text-gray-400 mt-0.5">Projected accrual from recurring actual breaches. Current open exposure is shown in the top card.</p>
             </div>
             <span className="text-lg font-bold text-red-600">
               $
-              {penaltyAccrualData.length > 0
-                ? penaltyAccrualData[penaltyAccrualData.length - 1].cumulative.toLocaleString()
+              {exposureTrendData.length > 0
+                ? exposureTrendData[exposureTrendData.length - 1].cumulative.toLocaleString()
                 : 0}
             </span>
           </div>
           <div className="px-2 py-3 h-[200px]">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart
-                data={penaltyAccrualData.length ? penaltyAccrualData : [{ date: "—", cumulative: 0 }]}
+                data={exposureTrendData.length ? exposureTrendData : [{ date: "—", cumulative: 0 }]}
                 margin={{ left: -5, right: 10, top: 10, bottom: 0 }}
               >
                 <defs>
@@ -441,10 +686,21 @@ export default function PerformanceCockpit({
                 />
                 <Tooltip
                   contentStyle={{ borderRadius: "8px", border: "1px solid #e2e8f0", fontSize: "11px", padding: "8px" }}
-                  formatter={(v: any) => [`$${v.toLocaleString()}`, "Cumulative"]}
+                  formatter={(v: any, name: any) => [
+                    `$${Number(v).toLocaleString()}`,
+                    name === "exposure" ? "Monthly Projected Accrual" : "Rolling 12-Month Projection",
+                  ]}
                 />
                 <Area
-                  type="step"
+                  type="monotone"
+                  dataKey="exposure"
+                  stroke="#f97316"
+                  strokeWidth={1.5}
+                  fillOpacity={0.18}
+                  fill="#f97316"
+                />
+                <Area
+                  type="monotone"
                   dataKey="cumulative"
                   stroke="#ef4444"
                   strokeWidth={2}

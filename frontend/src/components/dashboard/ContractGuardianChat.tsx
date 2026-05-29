@@ -7,11 +7,6 @@ import {
   X,
   Send,
   Database,
-  Brain,
-  Terminal,
-  Activity,
-  Shield,
-  Sparkles
 } from "lucide-react";
 
 // Import modular components
@@ -97,7 +92,7 @@ export default function ContractGuardianChat({
         if (activeDelegation) {
           return `Delegated to ${activeDelegation.agent}...`;
         }
-        return `${lastAssistantMessage.delegations.length} agent handoff${lastAssistantMessage.delegations.length === 1 ? "" : "s"} complete`;
+        return `${lastAssistantMessage.delegations.length} specialist agent${lastAssistantMessage.delegations.length === 1 ? "" : "s"} complete`;
       }
       if (lastAssistantMessage?.thought) {
         return "Thinking & reasoning...";
@@ -146,9 +141,6 @@ export default function ContractGuardianChat({
               </div>
               <div>
                 <h3 className="text-sm font-bold text-gray-800">Contract Guardian</h3>
-                <p className="text-[10px] text-blue-600 font-semibold tracking-tight uppercase">
-                  RAG-Powered Audit Intelligence
-                </p>
               </div>
             </div>
             <div className="flex items-center gap-1">
@@ -180,7 +172,7 @@ export default function ContractGuardianChat({
           </div>
 
           {/* Slim Live Streaming Status Bar */}
-          <div className="h-7 px-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+          <div className="h-7 px-4 border-b border-gray-100 bg-gray-50 flex items-center">
             <div className="flex items-center gap-1.5">
               {hasActiveStatus ? (
                 <>
@@ -198,12 +190,6 @@ export default function ContractGuardianChat({
                 </>
               )}
             </div>
-
-            <div className="flex items-center gap-2 text-[9px] font-bold text-gray-400">
-              <span className="flex items-center gap-0.5">
-                <Brain className="h-2.5 w-2.5" /> Thinking Config Enabled
-              </span>
-            </div>
           </div>
 
           {/* Scrollable Content Body */}
@@ -218,13 +204,13 @@ export default function ContractGuardianChat({
                 </div>
                 <h4 className="text-sm font-bold text-gray-800 mb-1">How can I help?</h4>
                 <p className="text-xs text-gray-500 leading-relaxed mb-6">
-                  Ask me about penalty clauses, audit frequencies, or specific breaches. I search your contract in real-time.
+                  Ask Contract Guardian to review the supplier contract, performance evidence, and remediation options.
                 </p>
                 <div className="w-full space-y-2">
                   {[
-                    "What is the penalty for Late Deliveries?",
-                    "Are there any Force Majeure clauses?",
-                    "How often should we run audits?",
+                    "Which supplier obligation needs immediate attention and what action should be triggered?",
+                    "Which breach is driving the most exposure and why?",
+                    "Review the current airline catering contract performance, identify the highest-risk supplier breach, explain the evidence, and recommend the next autonomous actions to reduce exposure this week.",
                   ].map((q) => (
                     <button
                       key={q}

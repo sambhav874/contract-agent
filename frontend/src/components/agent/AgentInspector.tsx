@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import {
   Activity,
+  Database,
   ChevronUp,
   ChevronDown,
   Terminal,
@@ -26,6 +27,31 @@ interface AgentInspectorProps {
     max_iterations: number;
     iterations_used: number;
   };
+  actuals?: any[];
+}
+
+const SOURCE_ORDER = ["ERP", "REST API", "Excel / Sheets", "Ticketing", "Portal", "Other"];
+const SOURCE_STYLE: Record<string, { color: string; bg: string; border: string }> = {
+  ERP: { color: "#2563eb", bg: "bg-blue-50", border: "border-blue-100" },
+  "REST API": { color: "#0d9488", bg: "bg-teal-50", border: "border-teal-100" },
+  "Excel / Sheets": { color: "#16a34a", bg: "bg-green-50", border: "border-green-100" },
+  Ticketing: { color: "#f97316", bg: "bg-orange-50", border: "border-orange-100" },
+  Portal: { color: "#7c3aed", bg: "bg-violet-50", border: "border-violet-100" },
+  Other: { color: "#64748b", bg: "bg-slate-50", border: "border-slate-100" },
+};
+
+function actualTimestamp(actual: any) {
+  return actual?.timestamp || actual?.scheduled_departure || actual?.audit_date || actual?.date || actual?.month;
+}
+
+function normalizeSourceType(actual: any) {
+  const raw = String(actual?.metadata?.source_type || actual?.source_type || actual?.source || "Other").toLowerCase();
+  if (raw.includes("erp")) return "ERP";
+  if (raw.includes("rest") || raw.includes("api")) return "REST API";
+  if (raw.includes("excel") || raw.includes("sheet") || raw.includes("workbook")) return "Excel / Sheets";
+  if (raw.includes("ticket") || raw.includes("servicenow") || raw.includes("inc")) return "Ticketing";
+  if (raw.includes("portal")) return "Portal";
+  return "Other";
 }
 
 export default function AgentInspector({
@@ -34,9 +60,102 @@ export default function AgentInspector({
   toolCalls,
   facts,
   safetyStatus,
+  actuals = [],
 }: AgentInspectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState<"trace" | "tools" | "memory" | "safety">("trace");
+  const sourceOverview = React.useMemo(() => {
+    const groups = new Map<
+      string,
+      { type: string; records: number; kpis: Set<string>; names: Set<string>; latest: string | null }
+    >();
+
+    actuals.forEach((actual) => {
+      const type = normalizeSourceType(actual);
+      const existing = groups.get(type) || {
+        type,
+        records: 0,
+        kpis: new Set<string>(),
+        names: new Set<string>(),
+        latest: null,
+      };
+      const timestamp = actualTimestamp(actual);
+      existing.records += 1;
+      if (actual?.kpi_id) existing.kpis.add(actual.kpi_id);
+      if (actual?.source) existing.names.add(actual.source);
+      if (timestamp && (!existing.latest || new Date(timestamp).getTime() > new Date(existing.latest).getTime())) {
+        existing.latest = timestamp;
+      }
+      groups.set(type, existing);
+    });
+
+    return [...groups.values()].sort((a, b) => SOURCE_ORDER.indexOf(a.type) - SOURCE_ORDER.indexOf(b.type));
+  }, [actuals]);
+
+  if (sourceOverview.length > 0) {
+    return (
+      <div
+        id="source-dock-container"
+        className={`fixed left-4 z-40 bg-white/95 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] backdrop-blur-xl transition-all duration-500 ease-in-out ${
+          isOpen
+            ? "bottom-4 w-[860px] rounded-xl border border-gray-200/80"
+            : "bottom-4 h-10 w-auto rounded-lg border border-gray-200/80"
+        }`}
+      >
+        <div
+          id="source-dock-header"
+          onClick={() => setIsOpen(!isOpen)}
+          className={`flex cursor-pointer items-center justify-between gap-6 transition-colors hover:bg-gray-50/50 ${
+            isOpen ? "h-12 border-b border-gray-100 px-4" : "h-10 rounded-lg px-3"
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-emerald-600/10 text-emerald-700">
+              <Database className="h-3.5 w-3.5" />
+            </div>
+            <span className="text-xs font-bold uppercase tracking-wide text-gray-800">
+              {isOpen ? "Connected Evidence Sources" : "Sources"}
+            </span>
+            <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+              {actuals.length.toLocaleString()} records
+            </span>
+          </div>
+          {isOpen ? (
+            <ChevronDown className="h-4 w-4 text-gray-400 transition-transform" />
+          ) : (
+            <ChevronUp className="h-4 w-4 text-gray-400 transition-transform" />
+          )}
+        </div>
+
+        {isOpen && (
+          <div className="grid grid-cols-1 gap-3 p-3 md:grid-cols-5">
+            {sourceOverview.map((source) => {
+              const style = SOURCE_STYLE[source.type] || SOURCE_STYLE.Other;
+              const latest = source.latest
+                ? new Date(source.latest).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "2-digit" })
+                : "No sync";
+              return (
+                <div key={source.type} className={`rounded-lg border ${style.border} ${style.bg} p-3`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{source.type}</p>
+                      <p className="mt-1 text-lg font-bold text-slate-900">{source.records.toLocaleString()}</p>
+                    </div>
+                    <span className="mt-0.5 h-2.5 w-2.5 rounded-full" style={{ backgroundColor: style.color }} />
+                  </div>
+                  <p className="mt-1 text-[11px] font-medium text-slate-600">{source.kpis.size} KPIs covered</p>
+                  <p className="mt-2 line-clamp-2 min-h-[28px] text-[10px] leading-snug text-slate-500">
+                    {[...source.names].slice(0, 2).join(" / ") || "Evidence stream"}
+                  </p>
+                  <p className="mt-2 text-[10px] font-semibold text-slate-500">Latest sync: {latest}</p>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div
